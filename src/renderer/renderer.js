@@ -880,38 +880,16 @@ function applyLanguage() {
   timerAnnouncer.textContent = '';
 }
 
-let modeSwitchTimeout = 0;
-
 /**
- * Switching modes resizes a transparent frameless window. If the layout is
- * reflowed first, the renderer paints one frame of the new (small) layout
- * inside the still-large window — a flash of empty desktop. Fade the widget
- * out, let the main process resize, then fade back in.
+ * Switching modes resizes a transparent frameless window. The main process
+ * hides the window for that one resize tick, so the compositor never stretches
+ * the previous frame; here we only have to apply the new layout and the select
+ * state, then ask for the resize immediately (no waiting, or the window would
+ * be shown with the old layout still applied).
  */
-function nextPaint() {
-  return new Promise((resolve) => {
-    requestAnimationFrame(() => requestAnimationFrame(resolve));
-  });
-}
-
-function endModeSwitch() {
-  clearTimeout(modeSwitchTimeout);
-  widget.classList.remove('is-mode-switching');
-}
-
 async function applyDisplayMode(nextMode) {
   if (!DISPLAY_MODES.has(nextMode)) {
     return;
-  }
-
-  const canResize = typeof bridge?.setDisplayMode === 'function';
-  const switching = canResize && nextMode !== displayMode;
-
-  if (switching) {
-    widget.classList.add('is-mode-switching');
-    // Safety net: never leave the widget invisible if a paint never lands.
-    modeSwitchTimeout = setTimeout(endModeSwitch, 600);
-    await nextPaint();
   }
 
   displayMode = nextMode;
@@ -928,16 +906,11 @@ async function applyDisplayMode(nextMode) {
     );
   }
 
-  if (canResize) {
+  if (typeof bridge?.setDisplayMode === 'function') {
     try {
       await bridge.setDisplayMode(nextMode);
     } catch (error) {
       console.error('NanoTimer: could not resize for display mode.', error);
-    }
-
-    if (switching) {
-      await nextPaint();
-      endModeSwitch();
     }
   }
 }

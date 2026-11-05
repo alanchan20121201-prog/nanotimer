@@ -198,7 +198,9 @@ function setWindowDisplayMode(win, nextMode) {
       width: size.width,
       height: size.height
     },
-    true
+    // Do not animate: Windows tweens a transparent frameless window between
+    // the two sizes, which looked like a flash before the content settled.
+    false
   );
   suppressEdgeSnapUntil = Date.now() + 600;
 

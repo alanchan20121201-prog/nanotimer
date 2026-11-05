@@ -284,12 +284,18 @@ body:active {
 
 .setup-controls {
   display: flex;
-  align-self: flex-start;
+  /* Full width so the background chip can sit on the right edge, in line with
+     the mode select below it. */
+  align-self: stretch;
   justify-content: flex-start;
-  gap: 26px;
-  align-items: flex-start;
+  gap: 12px;
+  align-items: center;
   margin: 0;
   line-height: 0;
+}
+
+#background-button {
+  margin-left: auto;
 }
 
 .preset-select,

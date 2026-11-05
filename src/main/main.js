@@ -191,13 +191,12 @@ function setWindowDisplayMode(win, nextMode) {
     size.height
   );
 
-  // Windows composites the last frame while a window changes size, so a
-  // visible resize stretches the old content for a frame. Hiding the window
-  // for the (single) resize tick means DWM never composites an intermediate
-  // frame, and the widget appears already at its new size and layout.
-  // Always activate on the way back: showInactive() leaves the pill behind
-  // whatever the user is looking at, which reads as "the window vanished".
-  win.hide();
+  // Windows composites the previous frame while a window changes size, so a
+  // visible resize smears the old content across the new bounds for a frame.
+  // Drop the window alpha to zero for the swap, then restore it once the
+  // renderer has actually painted at the new size — never show a stretched
+  // frame, and never leave the widget invisible.
+  win.setOpacity(0);
   win.setBounds(
     {
       x: position.x,
@@ -208,7 +207,24 @@ function setWindowDisplayMode(win, nextMode) {
     // Do not animate: an animated resize is exactly the stretch we avoid.
     false
   );
-  win.show();
+
+  const restoreOpacity = () => {
+    if (!win.isDestroyed()) {
+      win.setOpacity(1);
+    }
+  };
+
+  const fallback = setTimeout(restoreOpacity, 400);
+
+  win.webContents
+    .executeJavaScript(
+      'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))'
+    )
+    .catch(() => {})
+    .finally(() => {
+      clearTimeout(fallback);
+      restoreOpacity();
+    });
   suppressEdgeSnapUntil = Date.now() + 600;
 
   return true;

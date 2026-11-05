@@ -127,8 +127,62 @@ function scheduleEdgeSnap(win) {
   }, EDGE_SNAP_DELAY_MS);
 }
 
-function clampToWorkArea(win, x, y, width, height) {
-  const display = screen.getDisplayMatching(win.getBounds());
+const MODE_TRANSITION_MS = 220;
+let modeAnimationId = 0;
+
+function easeOutCubic(t) {
+  return 1 - (1 - t) ** 3;
+}
+
+/**
+ * Grow or shrink the window around its centre, one eased step per frame.
+ * Anchoring both edges to the centre is what makes a capsule collapse into the
+ * mini circle in place (the long axis travels further, the short one barely
+ * moves) and makes fullscreen bloom outwards.
+ */
+function animateWindowBounds(win, from, to, onDone) {
+  if (modeAnimationId) {
+    clearInterval(modeAnimationId);
+    modeAnimationId = 0;
+  }
+
+  const startedAt = Date.now();
+
+  const step = () => {
+    if (win.isDestroyed()) {
+      clearInterval(finishedId);
+      return;
+    }
+
+    const progress = Math.min(1, (Date.now() - startedAt) / MODE_TRANSITION_MS);
+    const eased = easeOutCubic(progress);
+
+    win.setBounds(
+      {
+        x: Math.round(from.x + (to.x - from.x) * eased),
+        y: Math.round(from.y + (to.y - from.y) * eased),
+        width: Math.max(1, Math.round(from.width + (to.width - from.width) * eased)),
+        height: Math.max(1, Math.round(from.height + (to.height - from.height) * eased))
+      },
+      false
+    );
+
+    if (progress >= 1) {
+      clearInterval(finishedId);
+      modeAnimationId = 0;
+
+      if (typeof onDone === 'function') {
+        onDone();
+      }
+    }
+  };
+
+  const finishedId = setInterval(step, 16);
+  modeAnimationId = finishedId;
+  step();
+}
+
+function clampToWorkArea(win, x, y, width, height) {  const display = screen.getDisplayMatching(win.getBounds());
 
   if (!display) {
     return { x, y };
@@ -156,15 +210,22 @@ function setWindowDisplayMode(win, nextMode) {
 
   if (nextMode === 'fullscreen') {
     if (displayState.mode !== 'fullscreen') {
-      displayState.restoreBounds = win.getBounds();
+      const startBounds = win.getBounds();
+      displayState.restoreBounds = startBounds;
       displayState.wasPinned = win.isAlwaysOnTop();
       displayState.mode = 'fullscreen';
 
-      const display = screen.getDisplayMatching(win.getBounds());
+      const display = screen.getDisplayMatching(startBounds);
       win.setAlwaysOnTop(true);
-      win.setFullScreen(true);
-      win.setBounds(display.bounds, false);
-      suppressEdgeSnapUntil = Date.now() + 600;
+      suppressEdgeSnapUntil = Date.now() + 800;
+
+      // Bloom out to the display, then switch to native fullscreen once the
+      // window already covers it (no jump, no second animation).
+      animateWindowBounds(win, startBounds, display.bounds, () => {
+        if (!win.isDestroyed()) {
+          win.setFullScreen(true);
+        }
+      });
     }
 
     return true;
@@ -183,48 +244,29 @@ function setWindowDisplayMode(win, nextMode) {
 
   const bounds = win.getBounds();
   const origin = restoringFromFullscreen && restore ? restore : bounds;
+
+  // Keep the centre still: the widget collapses/expands in place instead of
+  // jumping to wherever its top-left corner would land.
+  const centerX = origin.x + origin.width / 2;
+  const centerY = origin.y + origin.height / 2;
   const position = clampToWorkArea(
     win,
-    origin.x,
-    origin.y,
+    Math.round(centerX - size.width / 2),
+    Math.round(centerY - size.height / 2),
     size.width,
     size.height
   );
 
-  // Windows composites the previous frame while a window changes size, so a
-  // visible resize smears the old content across the new bounds for a frame.
-  // Drop the window alpha to zero for the swap, then restore it once the
-  // renderer has actually painted at the new size — never show a stretched
-  // frame, and never leave the widget invisible.
-  win.setOpacity(0);
-  win.setBounds(
+  animateWindowBounds(
+    win,
+    bounds,
     {
       x: position.x,
       y: position.y,
       width: size.width,
       height: size.height
-    },
-    // Do not animate: an animated resize is exactly the stretch we avoid.
-    false
-  );
-
-  const restoreOpacity = () => {
-    if (!win.isDestroyed()) {
-      win.setOpacity(1);
     }
-  };
-
-  const fallback = setTimeout(restoreOpacity, 400);
-
-  win.webContents
-    .executeJavaScript(
-      'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))'
-    )
-    .catch(() => {})
-    .finally(() => {
-      clearTimeout(fallback);
-      restoreOpacity();
-    });
+  );
   suppressEdgeSnapUntil = Date.now() + 600;
 
   return true;

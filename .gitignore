@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+out/
+.build-tmp/
+
+# Electron / npm caches
+.npm-cache/
+.electron-cache/
+.electron-builder-cache/
+.electron-localappdata/
+
+# Portable user data (created next to the executable or in node_modules during dev)
+NanoTimerData/
+
+# Logs and scratch captures
+*.log
+.dsh-pilot/
+
+# OS junk
+.DS_Store
+Thumbs.db

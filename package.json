@@ -1,0 +1,74 @@
+{
+  "name": "nanotimer",
+  "productName": "NanoTimer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "NanoTimer - a frameless, transparent floating timer widget.",
+  "author": "NanoTimer",
+  "main": "src/main/main.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node scripts/start.js",
+    "dev": "node scripts/start.js",
+    "check": "node --check scripts/start.js && node --check src/main/main.js && node --check src/main/window-snap.js && node --check src/main/preload.js && node --check src/renderer/renderer.js",
+    "test": "node --test test/*.test.js",
+    "pack": "electron-builder --dir",
+    "package:win": "npm run pack && powershell -NoProfile -ExecutionPolicy Bypass -File scripts/make-launcher.ps1",
+    "dist": "electron-builder --win portable --x64",
+    "dist:win": "electron-builder --win portable --x64"
+  },
+  "build": {
+    "appId": "com.nanotimer.app",
+    "productName": "NanoTimer",
+    "asar": true,
+    "npmRebuild": false,
+    "compression": "maximum",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "package.json",
+      "!**/*.map"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "${productName}-${version}-portable.${ext}"
+    },
+    "portable": {
+      "requestExecutionLevel": "user"
+    }
+  },
+  "devDependencies": {
+    "electron": "45.2.2",
+    "electron-builder": "26.18.0"
+  },
+  "license": "MIT",
+  "keywords": [
+    "electron",
+    "timer",
+    "countdown",
+    "stopwatch",
+    "widget",
+    "desktop",
+    "productivity"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/USERNAME/NanoTimer.git"
+  },
+  "bugs": {
+    "url": "https://github.com/USERNAME/NanoTimer/issues"
+  },
+  "homepage": "https://github.com/USERNAME/NanoTimer#readme"
+}

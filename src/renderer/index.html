@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src 'self' data: blob:; object-src 'none'; base-uri 'none'; form-action 'none'"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>NanoTimer</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main
+      class="widget"
+      aria-label="NanoTimer floating timer"
+      data-i18n-aria-label="appLabel"
+      data-state="setup"
+      data-mode="setup"
+    >
+      <div class="backdrop" id="backdrop" aria-hidden="true"></div>
+      <div class="drag-surface" aria-hidden="true"></div>
+      <div class="reset-hint" id="reset-hint" role="status" hidden></div>
+
+      <header class="titlebar">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <span class="brand-name">NanoTimer</span>
+        </div>
+
+        <div class="window-controls no-drag">
+          <button
+            class="window-btn audio-btn"
+            id="audio-button"
+            type="button"
+            aria-label="Choose alarm sound"
+            data-i18n-aria-label="audio"
+            title="Choose alarm sound"
+            data-i18n-title="audio"
+          >
+            <span class="audio-icon" aria-hidden="true">♪</span>
+          </button>
+          <button
+            class="window-btn"
+            id="minimize-button"
+            type="button"
+            aria-label="Minimize"
+            data-i18n-aria-label="minimizeApp"
+            title="Minimize"
+            data-i18n-title="minimize"
+          >
+            &minus;
+          </button>
+          <button
+            class="window-btn window-btn--close"
+            id="close-button"
+            type="button"
+            aria-label="Close"
+            data-i18n-aria-label="closeApp"
+            title="Close"
+            data-i18n-title="close"
+          >
+            &times;
+          </button>
+        </div>
+      </header>
+
+      <section
+        class="view view--setup"
+        id="setup-view"
+        aria-labelledby="setup-title"
+      >
+        <h1 class="view-title" id="setup-title" data-i18n="setupTitle">
+          Set a focus capsule
+        </h1>
+
+        <div class="setup-controls no-drag">
+          <select
+            class="preset-select"
+            data-preset-select
+            aria-label="Presets"
+            data-i18n-aria-label="presets"
+          ></select>
+          <select
+            class="language-select"
+            data-language-select
+            aria-label="Language"
+            data-i18n-aria-label="language"
+          ></select>
+          <button
+            class="chip-button"
+            id="background-button"
+            type="button"
+            title="Background image"
+            data-i18n-title="background"
+            aria-label="Background image"
+            data-i18n-aria-label="background"
+          >
+            <span aria-hidden="true">▣</span>
+            <span data-i18n="backgroundShort">Background</span>
+          </button>
+          <button
+            class="chip-button"
+            id="background-clear"
+            type="button"
+            title="Remove background"
+            data-i18n-title="backgroundClear"
+            aria-label="Remove background"
+            data-i18n-aria-label="backgroundClear"
+            hidden
+          >
+            <span aria-hidden="true">×</span>
+          </button>
+        </div>
+
+        <form class="timer-form" id="timer-form" novalidate>
+          <div class="run-mode-row no-drag">
+            <label class="run-mode-label" for="run-mode-select" data-i18n="runMode">
+              Timer mode
+            </label>
+            <select id="run-mode-select" class="run-mode-select">
+              <option value="countdown" data-i18n="modeCountdown">Countdown</option>
+              <option value="stopwatch" data-i18n="modeStopwatch">Stopwatch</option>
+            </select>
+          </div>
+
+          <div class="time-fields">
+            <label class="time-field">
+              <span class="field-label" data-i18n="hours">Hours</span>
+              <input
+                class="time-input"
+                id="hours-input"
+                name="hours"
+                type="number"
+                min="0"
+                max="99"
+                step="1"
+                value="0"
+                inputmode="numeric"
+                autocomplete="off"
+                spellcheck="false"
+                aria-describedby="form-message"
+              />
+            </label>
+
+            <label class="time-field">
+              <span class="field-label" data-i18n="minutes">Minutes</span>
+              <input
+                class="time-input"
+                id="minutes-input"
+                name="minutes"
+                type="number"
+                min="0"
+                max="59"
+                step="1"
+                value="25"
+                inputmode="numeric"
+                autocomplete="off"
+                spellcheck="false"
+                aria-describedby="form-message"
+              />
+            </label>
+
+            <label class="time-field">
+              <span class="field-label" data-i18n="seconds">Seconds</span>
+              <input
+                class="time-input"
+                id="seconds-input"
+                name="seconds"
+                type="number"
+                min="0"
+                max="59"
+                step="1"
+                value="0"
+                inputmode="numeric"
+                autocomplete="off"
+                spellcheck="false"
+                aria-describedby="form-message"
+              />
+            </label>
+          </div>
+
+          <label class="note-field no-drag">
+            <span class="field-label" data-i18n="noteLabel">Focus note</span>
+            <textarea
+              class="note-input"
+              id="session-note"
+              rows="2"
+              maxlength="500"
+              placeholder="What are you focusing on?"
+              data-i18n-placeholder="notePlaceholder"
+            ></textarea>
+          </label>
+
+          <div class="form-actions no-drag">
+            <button
+              class="start-button"
+              type="submit"
+              title="Start countdown"
+              data-i18n="start"
+              data-i18n-title="startTitle"
+            >
+              Start
+            </button>
+            <button
+              class="export-button"
+              id="export-button"
+              type="button"
+              data-i18n="exportTxt"
+            >
+              Export TXT
+            </button>
+          </div>
+
+          <p
+            class="form-message"
+            id="form-message"
+            role="status"
+            aria-live="polite"
+          ></p>
+        </form>
+      </section>
+
+      <section
+        class="view timer"
+        id="timer-view"
+        tabindex="0"
+        aria-label="Timer controls"
+        data-i18n-aria-label="timerControls"
+        data-alert="normal"
+        hidden
+      >
+        <span class="timer-drag" aria-hidden="true"></span>
+        <div class="timer-meta">
+          <p class="eyebrow" id="timer-label" data-i18n="focusCapsule">
+            Focus capsule
+          </p>
+          <select
+            class="language-select timer-language no-drag"
+            data-language-select
+            aria-label="Language"
+            data-i18n-aria-label="language"
+          ></select>
+          <select
+            id="mode-select"
+            class="mode-select no-drag"
+            aria-label="Display mode"
+            data-i18n-aria-label="displayMode"
+          ></select>
+        </div>
+        <p class="time" id="time-display" data-timer-display>00:00</p>
+        <p class="hint" id="timer-status">Focusing</p>
+
+        <div class="timer-actions no-drag">
+          <button
+            class="ghost-button"
+            id="pause-button"
+            type="button"
+            aria-keyshortcuts="Space"
+          >
+            Pause
+          </button>
+          <button
+            class="ghost-button"
+            id="reset-button"
+            type="button"
+            aria-keyshortcuts="R"
+          >
+            Reset
+          </button>
+          <button
+            class="ghost-button"
+            id="mute-button"
+            type="button"
+            aria-pressed="false"
+            aria-keyshortcuts="Shift+M"
+            title="Mute alarm"
+            data-i18n-title="mute"
+          >
+            Mute
+          </button>
+          <button
+            class="ghost-button pin-button"
+            id="pin-button"
+            type="button"
+            aria-pressed="false"
+            title="Keep above other windows"
+          >
+            Pin
+          </button>
+          <button
+            class="ghost-button fullscreen-exit"
+            id="exit-fullscreen-button"
+            type="button"
+            data-i18n="exitFullscreen"
+          >
+            Exit
+          </button>
+        </div>
+        <div class="capsule-window-controls no-drag">
+          <button
+            class="window-btn"
+            id="capsule-minimize-button"
+            type="button"
+            aria-label="Minimize"
+            data-i18n-aria-label="minimizeApp"
+            title="Minimize"
+            data-i18n-title="minimize"
+          >
+            &minus;
+          </button>
+          <button
+            class="window-btn window-btn--close"
+            id="capsule-close-button"
+            type="button"
+            aria-label="Close"
+            data-i18n-aria-label="closeApp"
+            title="Close"
+            data-i18n-title="close"
+          >
+            &times;
+          </button>
+        </div>
+      </section>
+
+      <p
+        class="sr-only"
+        id="timer-announcer"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+      ></p>
+
+      <footer class="statusbar">
+        <span class="status">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span id="footer-status">Ready when you are</span>
+        </span>
+        <div
+          class="mode-controls no-drag"
+          role="group"
+          aria-label="Display mode"
+          data-i18n-aria-label="displayMode"
+        >
+          <button
+            class="mode-button"
+            type="button"
+            data-display-mode="capsule"
+            aria-pressed="true"
+            data-i18n="modeCapsule"
+          >
+            Capsule
+          </button>
+          <button
+            class="mode-button"
+            type="button"
+            data-display-mode="mini"
+            aria-pressed="false"
+            data-i18n="modeMini"
+          >
+            Mini
+          </button>
+        </div>
+        <span class="drag-note" aria-hidden="true" data-i18n="dragToMove">
+          Drag to move
+        </span>
+      </footer>
+    </main>
+
+    <script src="./renderer.js"></script>
+  </body>
+</html>

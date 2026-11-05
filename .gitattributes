@@ -1,0 +1,7 @@
+# Normalize line endings for a cross-platform repo.
+* text=auto eol=lf
+
+# Windows scripts must keep CRLF so cmd.exe and PowerShell parse them.
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.ps1 text eol=crlf

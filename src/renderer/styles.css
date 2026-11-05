@@ -1,0 +1,1603 @@
+:root {
+  color-scheme: dark;
+  --ink: rgba(246, 246, 240, 0.94);
+  --muted: rgba(246, 246, 240, 0.6);
+  --faint: rgba(246, 246, 240, 0.38);
+  --accent: #d8ff72;
+  --accent-ink: #10130b;
+  --accent-soft: rgba(216, 255, 114, 0.12);
+  --amber: #f3c77a;
+  --line: rgba(255, 255, 255, 0.1);
+  --control: rgba(255, 255, 255, 0.07);
+  --control-hover: rgba(255, 255, 255, 0.14);
+  --danger: #ff7368;
+  --radius: 24px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: transparent;
+}
+
+body {
+  /* Transparent gutter: gives the widget's drop shadow room to fade out.
+     Must live on ONE of html/body only, or the gutter is applied twice. */
+  padding: 24px;
+  /* Dragging is implemented in JS on the window drag surface. */
+  -webkit-user-select: none;
+  user-select: none;
+  font-family: "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system,
+    BlinkMacSystemFont, sans-serif;
+  color: var(--ink);
+  cursor: grab;
+  -webkit-font-smoothing: antialiased;
+}
+
+body:active {
+  cursor: grabbing;
+}
+
+/*
+ * Requirement 3: every interactive control opts out of the drag region so
+ * clicks and taps reach the control instead of starting a window drag.
+ */
+.widget button,
+.widget button *,
+.widget a,
+.widget a *,
+.widget input,
+.widget select,
+.widget textarea,
+.widget [contenteditable="true"],
+.widget [contenteditable="true"] *,
+.widget [role="button"],
+.widget [role="button"] *,
+.widget .no-drag,
+.widget .no-drag *,
+.widget .window-controls *,
+.widget .time-field,
+.widget .time-field *,
+.widget .timer,
+.widget .timer * {
+  -webkit-app-region: no-drag;
+}
+
+.widget {
+  --surface-alpha: 1;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  padding: 20px 24px 16px;
+  overflow: hidden;
+  isolation: isolate;
+  pointer-events: none;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--radius);
+  background-color: rgba(20, 20, 20, var(--surface-alpha));
+  background-image: radial-gradient(
+    130% 120% at 94% -8%,
+    rgba(216, 255, 114, 0.1),
+    transparent 56%
+  );
+  box-shadow:
+    /* 10px offset + 28px blur = 24px of spread, exactly the body gutter, so
+       the shadow fades out completely before the window edge. */
+    0 10px 28px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.09);
+  transition: background-color 240ms ease;
+}
+
+.widget:hover,
+.widget:focus-within {
+  --surface-alpha: 1;
+}
+
+/* Full-window drag layer. `.widget` also declares the drag region; this layer
+   makes it work reliably in Electron while controls above stay clickable. */
+.drag-surface {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: block;
+  pointer-events: auto;
+}
+
+.widget > :not(.drag-surface):not(.backdrop) {
+  position: relative;
+  z-index: 1;
+}
+
+/* Custom background image (setup + fullscreen). Sits behind every control and
+   is covered by a scrim, so buttons and labels keep their contrast. */
+.backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  /* One variable drives every surface: the card, the capsule pill, the mini
+     circle and fullscreen all read it (see applyBackground() in renderer.js). */
+  background-image: var(--bg-image, none);
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  opacity: 0;
+  transition: opacity 240ms ease;
+}
+
+.backdrop::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    180deg,
+    rgba(12, 12, 12, 0.62) 0%,
+    rgba(12, 12, 12, 0.78) 100%
+  );
+}
+
+.widget.has-background .backdrop {
+  opacity: 1;
+}
+
+/* Capsule and mini are small floating shapes: the photo paints on the shape
+   itself instead of a rectangle behind it, so nothing spills past the pill. */
+.widget[data-mode="capsule"] .backdrop,
+.widget[data-mode="mini"] .backdrop {
+  display: none;
+}
+
+.widget[data-mode="capsule"] .timer,
+.widget[data-mode="capsule"] .timer:hover,
+.widget[data-mode="capsule"] .timer:focus-within {
+  background-image:
+    linear-gradient(180deg, rgba(10, 10, 10, 0.55) 0%, rgba(10, 10, 10, 0.72) 100%),
+    var(--bg-image, none);
+  background-position: center;
+  background-size: cover;
+}
+
+.widget[data-mode="mini"].has-background .timer::after {
+  background-image:
+    linear-gradient(180deg, rgba(10, 10, 10, 0.55) 0%, rgba(10, 10, 10, 0.72) 100%),
+    var(--bg-image, none);
+  background-position: center;
+  background-size: cover;
+}
+
+.chip-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted);
+  font: inherit;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition:
+    color 160ms ease,
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+
+.chip-button:hover,
+.chip-button:focus-visible {
+  color: var(--ink);
+  border-color: rgba(255, 255, 255, 0.32);
+  background: rgba(255, 255, 255, 0.09);
+  outline: none;
+}
+
+.widget.has-background #background-button {
+  color: var(--accent);
+  border-color: rgba(216, 255, 114, 0.45);
+}
+
+/* Controls keep an opaque backing so a busy photo can never swallow them. */
+.widget.has-background .time-input,
+.widget.has-background .run-mode-select,
+.widget.has-background .preset-select,
+.widget.has-background .language-select,
+.widget.has-background .chip-button,
+.widget.has-background .ghost-button {
+  background-color: rgba(14, 14, 14, 0.78);
+}
+
+#background-clear[hidden] {
+  display: none;
+}
+
+.widget button,
+.widget input,
+.widget select,
+.widget textarea,
+.widget a,
+.widget [role="button"],
+.widget .timer,
+.widget .timer *,
+.widget .window-controls {
+  pointer-events: auto;
+}
+
+.widget::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: linear-gradient(
+    115deg,
+    transparent 0 44%,
+    rgba(255, 255, 255, 0.025) 44.2% 44.6%,
+    transparent 44.8% 100%
+  );
+  pointer-events: none;
+}
+
+.view {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.view[hidden] {
+  display: none;
+}
+
+.view--setup {
+  position: relative;
+  justify-content: flex-start;
+}
+
+.view-title {
+  min-height: 18px;
+  margin: 0 0 4px;
+  /* The window buttons moved into the header, so the title no longer needs to
+     reserve a strip on the right — it was clipping English ("SET A FOCUS CAPS…"). */
+  padding-right: 0;
+  overflow: hidden;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  line-height: 18px;
+  color: var(--accent);
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.setup-controls {
+  display: flex;
+  align-self: flex-start;
+  justify-content: flex-start;
+  gap: 26px;
+  align-items: flex-start;
+  margin: 0;
+  line-height: 0;
+}
+
+.preset-select,
+.language-select {
+  flex: 0 0 auto;
+  height: 18px;
+  padding: 0 4px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  outline: none;
+  /* Keeps the native popup list dark instead of the OS light default. */
+  color-scheme: dark;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--muted);
+  font: inherit;
+  font-size: 9px;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    border-color 120ms ease,
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.preset-select {
+  max-width: 72px;
+}
+
+.language-select {
+  max-width: 96px;
+}
+
+.setup-controls .language-select {
+  max-width: 86px;
+}
+
+.preset-select:hover,
+.language-select:hover {
+  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.09);
+  color: var(--ink);
+}
+
+.preset-select:focus-visible,
+.language-select:focus-visible {
+  outline: 2px solid rgba(216, 255, 114, 0.7);
+  outline-offset: 2px;
+}
+
+.preset-select option,
+.language-select option {
+  color-scheme: dark;
+  background: #1b1b1b;
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.timer-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  /* Must not grow: if the form stretches to fill the view it cannot be
+     centred, and the slack piles up above the status bar. */
+  flex: 0 0 auto;
+  /* Auto margins centre the form in whichever mode is showing, so the slack
+     splits evenly instead of piling up above the status bar. */
+  margin-block: auto;
+}
+
+.time-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.widget.is-stopwatch .time-fields {
+  display: none;
+}
+
+.widget:not(.is-stopwatch) .note-field {
+  display: none;
+}
+
+.time-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.field-label {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.time-input {
+  width: 100%;
+  height: 42px;
+  padding: 0 4px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  outline: none;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--ink);
+  font: inherit;
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  text-align: center;
+  cursor: text;
+  -webkit-appearance: none;
+  appearance: none;
+  -webkit-user-select: text;
+  user-select: text;
+  transition:
+    border-color 120ms ease,
+    background-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.time-input:hover {
+  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.time-input:focus {
+  border-color: rgba(216, 255, 114, 0.65);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 0 3px rgba(216, 255, 114, 0.12);
+}
+
+.time-input::selection {
+  background: rgba(216, 255, 114, 0.3);
+  color: var(--ink);
+}
+
+.time-input::-webkit-outer-spin-button,
+.time-input::-webkit-inner-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
+}
+
+.run-mode-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  margin: 4px 0;
+}
+
+.run-mode-label {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.run-mode-select {
+  height: 24px;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  outline: none;
+  /* Without this the native popup list paints light (white) on Windows. */
+  color-scheme: dark;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--ink);
+  font: inherit;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.run-mode-select:focus-visible {
+  outline: 2px solid rgba(216, 255, 114, 0.7);
+  outline-offset: 2px;
+}
+
+.note-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.note-input {
+  width: 100%;
+  height: 38px;
+  padding: 7px 9px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  outline: none;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--ink);
+  font: inherit;
+  font-size: 10px;
+  line-height: 1.35;
+  resize: none;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.note-input::placeholder {
+  color: var(--faint);
+}
+
+.note-input:focus {
+  border-color: rgba(216, 255, 114, 0.65);
+  box-shadow: 0 0 0 3px rgba(216, 255, 114, 0.12);
+}
+
+.form-actions {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.start-button {
+  flex: 1 1 auto;
+  width: auto;
+  height: 38px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    box-shadow 120ms ease,
+    transform 120ms ease;
+}
+
+.export-button {
+  flex: 0 0 auto;
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+.export-button:hover {
+  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--ink);
+}
+
+.export-button:focus-visible {
+  outline: 2px solid rgba(216, 255, 114, 0.7);
+  outline-offset: 2px;
+}
+
+.start-button:hover {
+  background: #e6ff9d;
+  box-shadow: 0 6px 18px rgba(216, 255, 114, 0.18);
+}
+
+.start-button:active {
+  transform: translateY(1px);
+}
+
+.start-button:focus-visible {
+  outline: 2px solid rgba(216, 255, 114, 0.7);
+  outline-offset: 2px;
+}
+
+.form-message {
+  min-height: 12px;
+  margin: 5px 0 0;
+  font-size: 10px;
+  line-height: 1.2;
+  text-align: center;
+  color: var(--faint);
+}
+
+.form-message.is-error {
+  color: #ff9a92;
+}
+
+.reset-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 21px;
+  z-index: 30;
+  max-width: calc(100% - 56px);
+  padding: 6px 10px;
+  border: 1px solid rgba(216, 255, 114, 0.28);
+  border-radius: 999px;
+  background: rgba(12, 20, 14, 0.94);
+  color: var(--accent);
+  font-size: 9px;
+  line-height: 1.35;
+  text-align: center;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.reset-hint[hidden] {
+  display: none;
+}
+
+.titlebar {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.brand {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+}
+
+.brand-mark {
+  position: relative;
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  border: 1px solid rgba(216, 255, 114, 0.6);
+  border-radius: 50%;
+}
+
+.brand-mark::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 12px rgba(216, 255, 114, 0.55);
+  transform: translate(-50%, -50%);
+}
+
+.brand-mark::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 1px;
+  height: 8px;
+  background: var(--accent);
+  transform-origin: 50% 100%;
+  transform: translate(-50%, -100%) rotate(38deg);
+}
+
+.brand-name {
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.14em;
+  color: rgba(243, 244, 236, 0.74);
+  text-transform: uppercase;
+}
+
+.capsule-window-controls {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  z-index: 10;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  transform: scale(0.82);
+  transform-origin: top right;
+}
+
+.widget[data-mode="mini"] .capsule-window-controls,
+.widget[data-mode="fullscreen"] .capsule-window-controls {
+  display: none;
+}
+
+.window-controls {
+  display: flex;
+  gap: 22px;
+  align-items: center;
+}
+
+.window-btn {
+  position: relative;
+  display: grid;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  background: var(--control);
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease,
+    border-color 120ms ease;
+}
+
+.window-btn:hover {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: var(--control-hover);
+  color: var(--ink);
+}
+
+.window-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.window-btn--close:hover {
+  border-color: transparent;
+  background: var(--danger);
+  color: #210b09;
+}
+
+.minimize-icon {
+  width: 8px;
+  height: 1.5px;
+  border-radius: 2px;
+  background: currentColor;
+}
+
+.close-icon,
+.close-icon::before {
+  position: absolute;
+  width: 9px;
+  height: 1.5px;
+  border-radius: 2px;
+  background: currentColor;
+}
+
+.close-icon {
+  transform: rotate(45deg);
+}
+
+.close-icon::before {
+  content: "";
+  inset: 0;
+  transform: rotate(90deg);
+}
+
+.timer {
+  /*
+   * The capsule is a no-drag island (see the pointer-events list above).
+   * Draggable regions ignore pointer events, so making it no-drag is what
+   * lets :hover and :focus-within open the control panel.
+   */
+  position: relative;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-self: flex-end;
+  justify-content: center;
+  align-items: flex-end;
+  width: 166px;
+  height: 72px;
+  margin-block: auto;
+  padding: 0 14px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  outline: none;
+  background-color: rgba(20, 20, 20, var(--surface-alpha));
+  text-align: right;
+  cursor: default;
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  transition:
+    width 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    height 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    padding 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    border-radius 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    border-color 160ms ease,
+    background-color 160ms ease,
+    box-shadow 240ms ease;
+}
+
+.timer::before {
+  display: none;
+}
+
+.timer:hover,
+.timer:focus-within {
+  width: 300px;
+  height: 148px;
+  padding: 10px 14px;
+  border-color: rgba(255, 255, 255, 0.18);
+  border-radius: 18px;
+  background-color: rgba(17, 17, 17, var(--surface-alpha));
+  box-shadow:
+    0 18px 44px rgba(0, 0, 0, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.timer:hover::before,
+.timer:focus-within::before {
+  opacity: 1;
+}
+
+.timer:focus-visible {
+  outline: 2px solid rgba(216, 255, 114, 0.7);
+  outline-offset: 3px;
+}
+
+.timer-meta {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  max-height: 0;
+  margin: 0;
+  overflow: hidden;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(4px);
+  transition:
+    max-height 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    margin 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 120ms ease,
+    transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.timer:hover .timer-meta,
+.timer:focus-within .timer-meta {
+  max-height: 18px;
+  margin-bottom: 4px;
+  overflow: visible;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.eyebrow {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: var(--accent);
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.timer-language {
+  flex: 0 0 auto;
+  max-width: 96px;
+}
+
+.time {
+  margin: 0;
+  font-family: "Bahnschrift Light", "Segoe UI Variable Display", "Segoe UI",
+    system-ui, sans-serif;
+  font-size: 36px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 300;
+  letter-spacing: -0.06em;
+  line-height: 0.92;
+  color: var(--ink);
+  white-space: nowrap;
+  transition:
+    font-size 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    color 200ms ease;
+}
+
+.timer:hover .time,
+.timer:focus-within .time {
+  font-size: 42px;
+}
+
+.hint {
+  max-height: 0;
+  margin: 0;
+  overflow: hidden;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(4px);
+  font-size: 11px;
+  letter-spacing: 0.01em;
+  color: var(--faint);
+  transition:
+    max-height 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    margin 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 120ms ease,
+    transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.timer:hover .hint,
+.timer:focus-within .hint {
+  max-height: 16px;
+  margin-top: 3px;
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.timer-actions {
+  display: flex;
+  gap: 14px;
+  width: 100%;
+  max-height: 0;
+  margin-top: 0;
+  overflow: hidden;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(4px);
+  transition:
+    max-height 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    margin 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 120ms ease,
+    transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.timer:hover .timer-actions,
+.timer:focus-within .timer-actions {
+  max-height: 38px;
+  margin-top: 8px;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.ghost-button {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 30px;
+  padding: 0 4px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+.ghost-button:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.09);
+  color: var(--ink);
+}
+
+.ghost-button:focus-visible {
+  outline: 2px solid rgba(216, 255, 114, 0.7);
+  outline-offset: 2px;
+}
+
+.ghost-button:disabled {
+  opacity: 0.42;
+  cursor: default;
+}
+
+#pin-button[aria-pressed="true"] {
+  border-color: rgba(216, 255, 114, 0.45);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+#pin-button[aria-pressed="true"]:hover {
+  background: rgba(216, 255, 114, 0.18);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.widget[data-state="paused"] .hint {
+  color: #ffcf6e;
+}
+
+.widget[data-state="paused"] #pause-button {
+  border-color: rgba(216, 255, 114, 0.45);
+  color: var(--accent);
+}
+
+.widget[data-state="complete"] .hint {
+  color: var(--danger);
+}
+
+.widget[data-state="complete"] .time {
+  color: var(--danger);
+  text-shadow: 0 0 28px rgba(255, 115, 104, 0.4);
+}
+
+#timer-view[data-alert="warning"] .time {
+  color: var(--amber);
+  text-shadow: 0 0 18px rgba(243, 199, 122, 0.16);
+}
+
+#timer-view[data-alert="critical"] .time {
+  color: var(--danger);
+  animation: timer-critical-flash 900ms ease-in-out infinite;
+}
+
+#timer-view[data-alert="complete"] .time {
+  color: var(--danger);
+  text-shadow: 0 0 28px rgba(255, 115, 104, 0.4);
+}
+
+#timer-view[data-alert="complete"] {
+  animation: timer-breathe 2400ms ease-in-out infinite;
+}
+
+.widget[data-state="paused"] #timer-view[data-alert="critical"] .time {
+  animation: none;
+  opacity: 1;
+}
+
+.widget[data-state="complete"] #pause-button {
+  border-color: transparent;
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+@keyframes timer-critical-flash {
+  0%,
+  100% {
+    opacity: 1;
+    color: var(--danger);
+  }
+
+  50% {
+    opacity: 0.35;
+    color: #ffb2ab;
+  }
+}
+
+@keyframes timer-breathe {
+  0%,
+  100% {
+    box-shadow:
+      0 10px 28px rgba(0, 0, 0, 0.22),
+      0 0 0 rgba(255, 115, 104, 0),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+
+  50% {
+    box-shadow:
+      0 10px 28px rgba(0, 0, 0, 0.3),
+      0 0 30px rgba(255, 115, 104, 0.38),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  }
+}
+
+.statusbar {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 9px;
+  border-top: 1px solid var(--line);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.status {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+}
+
+.status-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px rgba(216, 255, 114, 0.7);
+}
+
+.widget[data-state="running"] .status-dot {
+  animation: status-pulse 1.7s ease-in-out infinite;
+}
+
+.widget[data-state="paused"] .status-dot {
+  background: #ffcf6e;
+  box-shadow: 0 0 8px rgba(255, 207, 110, 0.6);
+}
+
+.widget[data-state="complete"] .status-dot {
+  background: var(--danger);
+  box-shadow: 0 0 12px rgba(255, 115, 104, 0.95);
+}
+
+@keyframes status-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.45;
+    transform: scale(0.7);
+  }
+}
+
+.drag-note {
+  color: var(--faint);
+}
+
+.audio-icon {
+  font-size: 12px;
+  line-height: 1;
+}
+
+.mode-controls {
+  display: none;
+}
+
+.mode-button {
+  height: 20px;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--control);
+  color: var(--muted);
+  font: inherit;
+  font-size: 8px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.mode-button[aria-pressed="true"] {
+  border-color: rgba(216, 255, 114, 0.4);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.fullscreen-exit {
+  display: none;
+}
+
+/*
+ * Capsule mode: the window is exactly the hover-panel footprint. The area
+ * around the compact 166x72 capsule is transparent, so there is no black
+ * letterboxing when the window is resized down.
+ */
+.widget[data-mode="capsule"] {
+  padding: 0;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.widget[data-mode="capsule"] .titlebar,
+.widget[data-mode="capsule"] .statusbar,
+.widget[data-mode="capsule"] .view--setup {
+  display: none;
+}
+
+.widget[data-mode="capsule"] .capsule-window-controls {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 10;
+  display: flex;
+  gap: 8px;
+  /* No outer scale: scaling the container made the two buttons paint closer
+     together than their layout boxes, so minimize and close overlapped. */
+  transform: none;
+}
+
+.widget[data-mode="capsule"] .capsule-window-controls .window-btn {
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  font-size: 11px;
+  line-height: 1;
+}
+
+/* Keep the mode/language selects clear of the floating window buttons. */
+.widget[data-mode="capsule"] .timer-meta {
+  padding-right: 54px;
+}
+
+/* The capsule panel is only ~270px wide: the four action labels and the
+   eyebrow were ellipsised ("再來一…", "專注膠…"). Tighten the row so the
+   full words fit instead of being clipped. */
+.widget[data-mode="capsule"] .timer-actions {
+  gap: 6px;
+}
+
+.widget[data-mode="capsule"] .ghost-button {
+  padding: 0 3px;
+  letter-spacing: 0.02em;
+}
+
+.widget[data-mode="capsule"] .eyebrow {
+  letter-spacing: 0.08em;
+}
+
+.widget[data-mode="capsule"] .timer {
+  width: 200px;
+  height: 64px;
+  margin: auto;
+}
+
+/* The panel is only 300px wide. The language switcher already lives in the
+   setup card, so the capsule drops it and keeps the room for the label. */
+.widget[data-mode="capsule"] .timer-language {
+  display: none;
+}
+
+.widget[data-mode="capsule"] .timer:hover,
+.widget[data-mode="capsule"] .timer:focus-within {
+  width: 300px;
+  height: 148px;
+  margin: auto;
+}
+
+/*
+ * Mini circle mode: a 96x96 ring. The ring depletes as the countdown runs;
+ * clicking the circle returns to capsule mode.
+ */
+.widget[data-mode="mini"] {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.widget[data-mode="mini"] .titlebar,
+.widget[data-mode="mini"] .statusbar,
+.widget[data-mode="mini"] .view--setup {
+  display: none;
+}
+
+.widget[data-mode="mini"] .timer {
+  width: 96px;
+  height: 96px;
+  margin: 0;
+  padding: 0;
+  align-self: center;
+  justify-content: center;
+  align-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: conic-gradient(
+    var(--accent) var(--progress, 100%),
+    rgba(255, 255, 255, 0.1) 0
+  );
+  box-shadow:
+    0 12px 30px rgba(0, 0, 0, 0.4),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+}
+
+.widget[data-mode="mini"] .timer::before {
+  display: none;
+}
+
+.widget[data-mode="mini"] .timer::after {
+  content: "";
+  position: absolute;
+  inset: 7px;
+  border-radius: 50%;
+  background: #141414;
+}
+
+.widget[data-mode="mini"] .timer:hover,
+.widget[data-mode="mini"] .timer:focus-within {
+  width: 96px;
+  height: 96px;
+  padding: 0;
+  border-radius: 50%;
+  /* Hover used to redraw the identical circle, which read as "nothing is
+     clickable". A small lift + ring tells the user this returns to the capsule. */
+  transform: scale(1.06);
+  background: conic-gradient(
+    var(--accent) var(--progress, 100%),
+    rgba(255, 255, 255, 0.1) 0
+  );
+  box-shadow:
+    0 12px 30px rgba(0, 0, 0, 0.4),
+    0 0 0 3px rgba(216, 255, 114, 0.3),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.widget[data-mode="mini"] .timer-meta,
+.widget[data-mode="mini"] .hint,
+.widget[data-mode="mini"] .timer-actions {
+  display: none;
+}
+
+.widget[data-mode="mini"] .time {
+  position: relative;
+  z-index: 1;
+  font-size: 20px;
+  letter-spacing: -0.04em;
+}
+
+/*
+ * Fullscreen mode: one giant clock on a near-black stage. The window itself
+ * is resized to the display bounds by the main process.
+ */
+/* The transparent gutter exists to host the widget's shadow; a fullscreen
+   stage must reach the screen edges, so drop it in that mode only. */
+body:has(.widget[data-mode="fullscreen"]) {
+  padding: 0;
+}
+
+.widget[data-mode="fullscreen"] {
+  -webkit-app-region: no-drag;
+  padding: 5vmin;
+  border: 0;
+  border-radius: 0;
+  background-color: #080907;
+  background-image: radial-gradient(
+    120% 100% at 50% 30%,
+    rgba(216, 255, 114, 0.06),
+    transparent 68%
+  );
+  box-shadow: none;
+}
+
+.widget[data-mode="fullscreen"] .titlebar,
+.widget[data-mode="fullscreen"] .statusbar,
+.widget[data-mode="fullscreen"] .view--setup {
+  display: none;
+}
+
+.widget[data-mode="fullscreen"] .timer {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  align-self: stretch;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  text-align: center;
+  cursor: default;
+}
+
+.widget[data-mode="fullscreen"] .timer:hover,
+.widget[data-mode="fullscreen"] .timer:focus-within {
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.widget[data-mode="fullscreen"] .timer::before,
+.widget[data-mode="fullscreen"] .timer-meta {
+  display: none;
+}
+
+.widget[data-mode="fullscreen"] .time {
+  font-size: clamp(88px, 22vw, 320px);
+  line-height: 0.88;
+  letter-spacing: -0.075em;
+}
+
+.widget[data-mode="fullscreen"] .hint {
+  max-height: none;
+  margin-top: 2vh;
+  overflow: visible;
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  font-size: clamp(12px, 1.6vw, 24px);
+}
+
+.widget[data-mode="fullscreen"] .timer-actions {
+  max-height: none;
+  margin-top: 4vh;
+  overflow: visible;
+  justify-content: center;
+  gap: 12px;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: none;
+}
+
+.widget[data-mode="fullscreen"] .ghost-button {
+  flex: 0 1 150px;
+  height: 46px;
+  font-size: 13px;
+}
+
+.widget[data-mode="fullscreen"] .pin-button {
+  display: none;
+}
+
+.widget[data-mode="fullscreen"] .fullscreen-exit {
+  display: block;
+}
+
+.widget[data-mode="fullscreen"] .drag-surface {
+  -webkit-app-region: no-drag;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .window-btn,
+  .time-input,
+  .start-button,
+  .ghost-button,
+  .preset-select,
+  .language-select,
+  .widget,
+  .timer,
+  .timer::before,
+  .timer-meta,
+  .timer .hint,
+  .timer .time,
+  .timer-actions {
+    transition: none;
+  }
+
+  .widget[data-state="running"] .status-dot,
+  #timer-view[data-alert="critical"] .time,
+  #timer-view[data-alert="complete"] {
+    animation: none;
+  }
+}
+
+/*
+ * Alignment, direct mode selection, panel mode, and the clipping-free glow
+ * pass. Digits are centered in every mode; the mini window carries a small
+ * transparent halo so its radial glow is never cut into a square.
+ */
+.timer {
+  align-items: center;
+  text-align: center;
+}
+
+.time {
+  width: 100%;
+  text-align: center;
+}
+
+.timer-meta {
+  gap: 6px;
+}
+
+.timer-language {
+  max-width: 76px;
+}
+
+.mode-select {
+  flex: 0 0 auto;
+  width: 70px;
+  height: 18px;
+  padding: 0 3px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  outline: none;
+  color-scheme: dark;
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--muted);
+  font: inherit;
+  font-size: 8px;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition:
+    border-color 120ms ease,
+    background-color 120ms ease;
+  -webkit-app-region: no-drag;
+}
+
+.mode-select:hover,
+.mode-select:focus-visible {
+  border-color: rgba(216, 255, 114, 0.45);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--ink);
+}
+
+.mode-select option,
+.run-mode-select option {
+  color-scheme: dark;
+  color: var(--ink);
+  background: #171814;
+}
+
+/* A narrow transparent drag strip for the modes whose circle fills the window. */
+.timer-drag {
+  display: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 4;
+  height: 16px;
+  pointer-events: auto;
+  cursor: grab;
+  -webkit-app-region: no-drag;
+}
+
+.widget[data-mode="mini"] .timer-drag,
+.widget[data-mode="capsule"] .timer-drag {
+  display: block;
+}
+
+.widget[data-mode="capsule"] .timer-drag {
+  height: 8px;
+}
+
+.widget[data-mode="mini"] {
+  overflow: visible;
+}
+
+.widget[data-mode="mini"] .timer {
+  width: 96px;
+  height: 96px;
+  margin: 32px;
+  overflow: visible;
+  background-clip: padding-box;
+  box-shadow:
+    0 0 18px rgba(216, 255, 114, 0.3),
+    0 0 30px rgba(216, 255, 114, 0.12),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.widget[data-mode="mini"] .timer:hover,
+.widget[data-mode="mini"] .timer:focus-within {
+  width: 96px;
+  height: 96px;
+  margin: 32px;
+  box-shadow:
+    0 0 22px rgba(216, 255, 114, 0.36),
+    0 0 36px rgba(216, 255, 114, 0.14),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+.widget[data-mode="capsule"] .timer {
+  margin: auto;
+  overflow: visible;
+  box-shadow:
+    0 0 22px rgba(216, 255, 114, 0.12),
+    0 10px 28px rgba(0, 0, 0, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.widget[data-mode="capsule"] .timer:hover,
+.widget[data-mode="capsule"] .timer:focus-within {
+  margin: auto;
+}
+
+.widget[data-mode="fullscreen"] .time {
+  width: 100%;
+  text-align: center;
+}
+
+.widget[data-mode="fullscreen"] .timer,
+.widget[data-mode="fullscreen"] .timer:focus-visible {
+  outline: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mode-select,
+  .timer-drag {
+    transition: none;
+  }
+}

@@ -2101,6 +2101,11 @@ if (modeSelect) {
   });
 }
 
+// Clicking the mini circle opens the capsule control panel; when the pointer
+// leaves that panel we go back to mini, so the click feels like "peek" rather
+// than a permanent mode change.
+let peekFromMini = false;
+
 timerView.addEventListener('click', (event) => {
   const target = event.target;
 
@@ -2108,7 +2113,15 @@ timerView.addEventListener('click', (event) => {
     displayMode === 'mini' &&
     !(target instanceof Element && target.closest('button, select'))
   ) {
+    peekFromMini = true;
     applyDisplayMode('capsule');
+  }
+});
+
+widget.addEventListener('pointerleave', () => {
+  if (peekFromMini && displayMode === 'capsule') {
+    peekFromMini = false;
+    applyDisplayMode('mini');
   }
 });
 

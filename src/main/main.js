@@ -219,13 +219,10 @@ function setWindowDisplayMode(win, nextMode) {
       win.setAlwaysOnTop(true);
       suppressEdgeSnapUntil = Date.now() + 800;
 
-      // Bloom out to the display, then switch to native fullscreen once the
-      // window already covers it (no jump, no second animation).
-      animateWindowBounds(win, startBounds, display.bounds, () => {
-        if (!win.isDestroyed()) {
-          win.setFullScreen(true);
-        }
-      });
+      // Native fullscreen immediately: animating the bounds first and calling
+      // setFullScreen() afterwards left the window half-sized on some setups.
+      win.setFullScreen(true);
+      win.setBounds(display.bounds, false);
     }
 
     return true;
@@ -398,6 +395,9 @@ function createMainWindow() {
     hasShadow: false,
     // Do not let Windows add a native WS_THICKFRAME border around the widget.
     thickFrame: false,
+    // Windows 11 otherwise draws its rounded-corner frame (a faint light line
+    // along the window corners) over the transparent edges of the widget.
+    roundedCorners: false,
 
     // Normal level by default; the Step 4 Pin action is an explicit opt-in.
     alwaysOnTop: false,

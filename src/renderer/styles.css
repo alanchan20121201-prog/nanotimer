@@ -2,7 +2,7 @@
   color-scheme: dark;
   --ink: rgba(246, 246, 240, 0.94);
   --muted: rgba(246, 246, 240, 0.6);
-  --faint: rgba(246, 246, 240, 0.38);
+  --faint: rgba(246, 246, 240, 0.46);
   --accent: #d8ff72;
   --accent-ink: #10130b;
   --accent-soft: rgba(216, 255, 114, 0.12);
@@ -41,8 +41,19 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-body:active {
+body:active,
+body.is-dragging,
+body.is-dragging * {
   cursor: grabbing;
+}
+
+/* Capsule and mini are bare floating panels: the window is bigger than the
+   visible pill so the capsule can expand on hover. Dropping the 24px gutter
+   keeps the widget flush with the window; the transparent area stays inert
+   (see the .drag-surface rule further down) so only the pill itself drags. */
+body:has(.widget[data-mode="capsule"]),
+body:has(.widget[data-mode="mini"]) {
+  padding: 0;
 }
 
 /*
@@ -83,18 +94,32 @@ body:active {
   pointer-events: none;
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: var(--radius);
-  background-color: rgba(20, 20, 20, var(--surface-alpha));
-  background-image: radial-gradient(
+  /* One tint shared by the card, the capsule pill and the mini circle, so the
+     floating shapes read as the same material as the panel. */
+  --surface-tint: radial-gradient(
     130% 120% at 94% -8%,
     rgba(216, 255, 114, 0.1),
     transparent 56%
   );
+  background-color: rgba(20, 20, 20, var(--surface-alpha));
+  background-image: var(--surface-tint);
   box-shadow:
     /* 10px offset + 28px blur = 24px of spread, exactly the body gutter, so
        the shadow fades out completely before the window edge. */
     0 10px 28px rgba(0, 0, 0, 0.42),
     inset 0 1px 0 rgba(255, 255, 255, 0.09);
-  transition: background-color 240ms ease;
+  transition:
+    background-color 240ms ease,
+    opacity 140ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* While the native window is being resized the scene is invisible: the CSS
+   layout and the window footprint change at different speeds, and cross-fading
+   through transparency is the only way to avoid the compositor stretching the
+   previous frame across the new bounds. */
+.widget.is-mode-switching {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .widget:hover,
@@ -160,6 +185,12 @@ body:active {
 .widget[data-mode="capsule"] .timer,
 .widget[data-mode="capsule"] .timer:hover,
 .widget[data-mode="capsule"] .timer:focus-within {
+  background-image: var(--surface-tint);
+}
+
+.widget[data-mode="capsule"].has-background .timer,
+.widget[data-mode="capsule"].has-background .timer:hover,
+.widget[data-mode="capsule"].has-background .timer:focus-within {
   background-image:
     linear-gradient(180deg, rgba(10, 10, 10, 0.55) 0%, rgba(10, 10, 10, 0.72) 100%),
     var(--bg-image, none);
@@ -180,7 +211,7 @@ body:active {
   align-items: center;
   gap: 5px;
   height: 24px;
-  padding: 0 9px;
+  padding: 0 8px;
   border: 1px solid var(--line);
   border-radius: 7px;
   background: rgba(255, 255, 255, 0.04);
@@ -232,21 +263,6 @@ body:active {
 .widget .timer *,
 .widget .window-controls {
   pointer-events: auto;
-}
-
-.widget::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  border-radius: inherit;
-  background: linear-gradient(
-    115deg,
-    transparent 0 44%,
-    rgba(255, 255, 255, 0.025) 44.2% 44.6%,
-    transparent 44.8% 100%
-  );
-  pointer-events: none;
 }
 
 .view {
@@ -301,17 +317,20 @@ body:active {
 .preset-select,
 .language-select {
   flex: 0 0 auto;
-  height: 18px;
-  padding: 0 4px;
+  /* Same height as the chips and the run-mode select: the first row mixes
+     three control types and mismatched heights read as a mistake, not a
+     hierarchy. */
+  height: 24px;
+  padding: 0 8px;
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: 7px;
   outline: none;
   /* Keeps the native popup list dark instead of the OS light default. */
   color-scheme: dark;
   background: rgba(255, 255, 255, 0.06);
   color: var(--muted);
   font: inherit;
-  font-size: 9px;
+  font-size: 10px;
   line-height: 1;
   cursor: pointer;
   transition:
@@ -321,7 +340,7 @@ body:active {
 }
 
 .preset-select {
-  max-width: 72px;
+  max-width: 84px;
 }
 
 .language-select {
@@ -329,7 +348,7 @@ body:active {
 }
 
 .setup-controls .language-select {
-  max-width: 86px;
+  max-width: 92px;
 }
 
 .preset-select:hover,
@@ -387,7 +406,7 @@ body:active {
 }
 
 .field-label {
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.08em;
   line-height: 1;
@@ -446,12 +465,11 @@ body:active {
   display: flex;
   gap: 12px;
   align-items: center;
-  justify-content: space-between;
   margin: 4px 0;
 }
 
 .run-mode-label {
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.08em;
   color: var(--muted);
@@ -459,8 +477,11 @@ body:active {
 }
 
 .run-mode-select {
+  /* Fill the rest of the row: a right-aligned 74px select left a 258px hole. */
+  flex: 1 1 auto;
+  min-width: 0;
   height: 24px;
-  padding: 0 6px;
+  padding: 0 8px;
   border: 1px solid var(--line);
   border-radius: 7px;
   outline: none;
@@ -540,13 +561,13 @@ body:active {
 .export-button {
   flex: 0 0 auto;
   height: 38px;
-  padding: 0 10px;
+  padding: 0 13px;
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 12px;
   background: transparent;
   color: var(--muted);
   font: inherit;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.04em;
   cursor: pointer;
@@ -667,7 +688,7 @@ body:active {
   font-size: 11px;
   font-weight: 650;
   letter-spacing: 0.14em;
-  color: rgba(243, 244, 236, 0.74);
+  color: rgba(246, 246, 240, 0.74);
   text-transform: uppercase;
 }
 
@@ -690,13 +711,15 @@ body:active {
 
 .window-controls {
   display: flex;
-  gap: 22px;
+  /* The three titlebar buttons read as one group (the capsule uses 8px too). */
+  gap: 8px;
   align-items: center;
 }
 
 .window-btn {
   position: relative;
   display: grid;
+  font-family: inherit;
   width: 26px;
   height: 26px;
   padding: 0;
@@ -851,6 +874,15 @@ body:active {
   transform: translateY(0);
 }
 
+.widget[data-state="complete"] .time {
+  cursor: pointer;
+  transition: color 160ms ease;
+}
+
+.widget[data-state="complete"] .time:hover {
+  color: var(--accent);
+}
+
 .eyebrow {
   flex: 1 1 auto;
   min-width: 0;
@@ -984,13 +1016,15 @@ body:active {
   cursor: default;
 }
 
-#pin-button[aria-pressed="true"] {
+#pin-button[aria-pressed="true"],
+#mute-button[aria-pressed="true"] {
   border-color: rgba(216, 255, 114, 0.45);
   background: var(--accent-soft);
   color: var(--accent);
 }
 
-#pin-button[aria-pressed="true"]:hover {
+#pin-button[aria-pressed="true"]:hover,
+#mute-button[aria-pressed="true"]:hover {
   background: rgba(216, 255, 114, 0.18);
 }
 
@@ -1214,6 +1248,17 @@ body:active {
   line-height: 1;
 }
 
+/* The collapsed pill is just the clock: the two window buttons only make sense
+   once the panel expands on hover, and at 64px tall they crowded the digits. */
+.widget[data-mode="capsule"] .capsule-window-controls {
+  transition: opacity 120ms ease;
+}
+
+.widget[data-mode="capsule"]:not(:hover):not(:focus-within) .capsule-window-controls {
+  opacity: 0;
+  pointer-events: none;
+}
+
 /* Keep the mode/language selects clear of the floating window buttons. */
 .widget[data-mode="capsule"] .timer-meta {
   padding-right: 54px;
@@ -1275,7 +1320,7 @@ body:active {
 .widget[data-mode="mini"] .timer {
   width: 96px;
   height: 96px;
-  margin: 0;
+  margin: auto;
   padding: 0;
   align-self: center;
   justify-content: center;
@@ -1301,7 +1346,8 @@ body:active {
   position: absolute;
   inset: 7px;
   border-radius: 50%;
-  background: #141414;
+  background-color: #141414;
+  background-image: var(--surface-tint);
 }
 
 .widget[data-mode="mini"] .timer:hover,
@@ -1393,6 +1439,14 @@ body:has(.widget[data-mode="fullscreen"]) {
   box-shadow: none;
 }
 
+/* The complete-state "breathe" animation animates a red halo around the card.
+   At fullscreen size that halo reads as a border inside the screen edge, so the
+   pulse is kept for the small modes only. */
+.widget[data-mode="fullscreen"] #timer-view[data-alert="complete"] {
+  animation: none;
+  box-shadow: none;
+}
+
 .widget[data-mode="fullscreen"] .timer::before,
 .widget[data-mode="fullscreen"] .timer-meta {
   display: none;
@@ -1442,6 +1496,15 @@ body:has(.widget[data-mode="fullscreen"]) {
 
 .widget[data-mode="fullscreen"] .drag-surface {
   -webkit-app-region: no-drag;
+  pointer-events: none;
+}
+
+/* Capsule and mini are "panel" modes: the window is larger than the visible
+   pill so the capsule has room to expand on hover, but that transparent margin
+   must not be draggable — only pressing the visible widget itself moves the
+   window (the pointerdown bubbles from .timer up to the document handler). */
+.widget[data-mode="capsule"] .drag-surface,
+.widget[data-mode="mini"] .drag-surface {
   pointer-events: none;
 }
 
@@ -1504,7 +1567,7 @@ body:has(.widget[data-mode="fullscreen"]) {
   background: rgba(255, 255, 255, 0.045);
   color: var(--muted);
   font: inherit;
-  font-size: 8px;
+  font-size: 9px;
   letter-spacing: 0.02em;
   cursor: pointer;
   transition:
@@ -1557,7 +1620,9 @@ body:has(.widget[data-mode="fullscreen"]) {
 .widget[data-mode="mini"] .timer {
   width: 96px;
   height: 96px;
-  margin: 32px;
+  /* Centred by auto margins: the widget now fills the whole window, so a fixed
+     32px margin would pin the ring to the top-left corner. */
+  margin: auto;
   overflow: visible;
   background-clip: padding-box;
   box-shadow:
@@ -1570,7 +1635,9 @@ body:has(.widget[data-mode="fullscreen"]) {
 .widget[data-mode="mini"] .timer:focus-within {
   width: 96px;
   height: 96px;
-  margin: 32px;
+  /* Centred by auto margins: the widget now fills the whole window, so a fixed
+     32px margin would pin the ring to the top-left corner. */
+  margin: auto;
   box-shadow:
     0 0 22px rgba(216, 255, 114, 0.36),
     0 0 36px rgba(216, 255, 114, 0.14),
@@ -1606,4 +1673,62 @@ body:has(.widget[data-mode="fullscreen"]) {
   .timer-drag {
     transition: none;
   }
+}
+
+/* ---------------------------------------------------------------- help sheet */
+.help-sheet {
+  position: absolute;
+  inset: 12px;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 18px 14px;
+  border: 1px solid rgba(246, 246, 240, 0.12);
+  border-radius: 18px;
+  background: rgba(16, 16, 16, 0.97);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.55);
+  pointer-events: auto;
+}
+
+.help-sheet[hidden] {
+  display: none;
+}
+
+.help-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.help-title {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.help-close {
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+}
+
+.help-list {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.help-list li::marker {
+  color: var(--accent);
 }

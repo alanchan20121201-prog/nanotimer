@@ -12,6 +12,7 @@ const secondsInput = document.getElementById('seconds-input');
 const formMessage = document.getElementById('form-message');
 const timeDisplay = document.getElementById('time-display');
 const timerStatus = document.getElementById('timer-status');
+const timerLabel = document.getElementById('timer-label');
 const timerAnnouncer = document.getElementById('timer-announcer');
 const footerStatus = document.getElementById('footer-status');
 const pauseButton = document.getElementById('pause-button');
@@ -28,6 +29,10 @@ const closeButton = document.getElementById('close-button');
 const capsuleMinimizeButton = document.getElementById('capsule-minimize-button');
 const capsuleCloseButton = document.getElementById('capsule-close-button');
 const exitFullscreenButton = document.getElementById('exit-fullscreen-button');
+const helpButton = document.getElementById('help-button');
+const helpSheet = document.getElementById('help-sheet');
+const helpCloseButton = document.getElementById('help-close');
+const updateButton = document.getElementById('update-button');
 const runModeSelect = document.getElementById('run-mode-select');
 const sessionNote = document.getElementById('session-note');
 const exportButton = document.getElementById('export-button');
@@ -49,6 +54,13 @@ const BACKGROUND_KEY = 'nanotimer.background';
 const MUTE_KEY = 'nanotimer.alarmMuted';
 const LOGS_KEY = 'nanotimer.logs';
 const STOPWATCH_KEY = 'nanotimer.runMode';
+const STATS_KEY = 'nanotimer.stats';
+const POMODORO_ROUNDS = 4;
+const POMODORO_SHORT_MS = 5 * 60 * 1000;
+const POMODORO_LONG_MS = 15 * 60 * 1000;
+const POMODORO_BREAK_DELAY_MS = 1500;
+const DEFAULT_POMODORO_FOCUS_MS = 25 * 60 * 1000;
+const EXTEND_MS = 5 * 60 * 1000;
 const DISPLAY_MODE_ORDER = ['capsule', 'mini', 'fullscreen'];
 const DISPLAY_MODES = new Set(['setup', ...DISPLAY_MODE_ORDER]);
 const DEFAULT_LANGUAGE = 'en';
@@ -144,6 +156,29 @@ const UI_TEXT = {
     runMode: 'Timer mode',
     modeCountdown: 'Countdown',
     modeStopwatch: 'Stopwatch',
+    modePomodoro: 'Pomodoro',
+    helpTitle: 'HOW TO USE',
+    help1: 'Pick countdown, stopwatch or Pomodoro, set a duration, then press Start.',
+    help2: 'Drag the capsule pill or the mini ring to move the window.',
+    help3: 'Hover the capsule to open the panel: pause, reset, mute, pin.',
+    help4: 'When a countdown ends, click the time to add five minutes.',
+    help5: 'Global keys: Ctrl+Alt+Space pauses, Ctrl+Alt+R resets.',
+    help6: 'Background, language and presets live on the setup card.',
+    updateCheck: 'Check for updates',
+    updateChecking: 'Checking for updates...',
+    updateLatest: 'You are on the latest version (v{v}).',
+    updateFound: 'Version v{v} is available.',
+    updateDownloading: 'Downloading update... {p}%',
+    updateReady: 'Update downloaded. Press the update button again to install.',
+    updateFailed: 'Could not check for updates.',
+    updateInstalling: 'Starting the installer...',
+    roundLabel: 'Round {n}/{total}',
+    breakShortRunning: 'Short break',
+    breakLongRunning: 'Long break',
+    extendHint: 'tap the time for +5:00',
+    statsToday: 'Today {n} · {m} min',
+    statsStreak: '{n}-day streak',
+    extended: 'Added five minutes',
     noteLabel: 'Focus note',
     notePlaceholder: 'What are you focusing on?',
     exportTxt: 'Export TXT',
@@ -152,6 +187,7 @@ const UI_TEXT = {
     background: 'Background image',
     backgroundShort: 'Background',
     backgroundClear: 'Remove background',
+    backgroundReset: 'Restore the default background',
     backgroundSet: 'Background image set',
     backgroundCleared: 'Background removed',
     backgroundError: 'Could not load that image',
@@ -218,6 +254,29 @@ const UI_TEXT = {
     runMode: '計時模式',
     modeCountdown: '倒數計時',
     modeStopwatch: '正數計時',
+    modePomodoro: '番茄鐘',
+    helpTitle: '使用說明',
+    help1: '選擇倒數、碼錶或番茄鐘，設定時間後按「開始」。',
+    help2: '拖曳膠囊藥丸或迷你圓環即可移動視窗。',
+    help3: '滑鼠移過膠囊會展開面板：暫停、重設、靜音、置頂。',
+    help4: '倒數結束時，點一下時間可以再加 5 分鐘。',
+    help5: '全域快捷鍵：Ctrl+Alt+Space 暫停／繼續，Ctrl+Alt+R 重設。',
+    help6: '背景圖、語言與預設組合都在設定頁。',
+    updateCheck: '檢查更新',
+    updateChecking: '正在檢查更新…',
+    updateLatest: '已是最新版本（v{v}）。',
+    updateFound: '有新版本 v{v}。',
+    updateDownloading: '下載更新… {p}%',
+    updateReady: '更新已下載，再按一次更新按鈕即可安裝。',
+    updateFailed: '無法檢查更新。',
+    updateInstalling: '正在啟動安裝程式…',
+    roundLabel: '第 {n}/{total} 輪',
+    breakShortRunning: '短休息',
+    breakLongRunning: '長休息',
+    extendHint: '點一下時間加 5 分鐘',
+    statsToday: '今日 {n} 輪 · {m} 分',
+    statsStreak: '連續 {n} 天',
+    extended: '已加 5 分鐘',
     noteLabel: '專注筆記',
     notePlaceholder: '這次要專注什麼？',
     exportTxt: '匯出 TXT',
@@ -226,6 +285,7 @@ const UI_TEXT = {
     background: '背景圖片',
     backgroundShort: '背景',
     backgroundClear: '移除背景',
+    backgroundReset: '恢復預設背景',
     backgroundSet: '背景圖片已套用',
     backgroundCleared: '背景已移除',
     backgroundError: '無法載入這張圖片',
@@ -292,6 +352,29 @@ const UI_TEXT = {
     runMode: '计时模式',
     modeCountdown: '倒计时',
     modeStopwatch: '正计时',
+    modePomodoro: '番茄钟',
+    helpTitle: '使用说明',
+    help1: '选择倒数、秒表或番茄钟，设置时间后按「开始」。',
+    help2: '拖动胶囊药丸或迷你圆环即可移动窗口。',
+    help3: '鼠标移过胶囊会展开面板：暂停、重置、静音、置顶。',
+    help4: '倒数结束时，点一下时间可以再加 5 分钟。',
+    help5: '全局快捷键：Ctrl+Alt+Space 暂停／继续，Ctrl+Alt+R 重置。',
+    help6: '背景图、语言与预设组合都在设置页。',
+    updateCheck: '检查更新',
+    updateChecking: '正在检查更新…',
+    updateLatest: '已是最新版本（v{v}）。',
+    updateFound: '有新版本 v{v}。',
+    updateDownloading: '下载更新… {p}%',
+    updateReady: '更新已下载，再按一次更新按钮即可安装。',
+    updateFailed: '无法检查更新。',
+    updateInstalling: '正在启动安装程序…',
+    roundLabel: '第 {n}/{total} 轮',
+    breakShortRunning: '短休息',
+    breakLongRunning: '长休息',
+    extendHint: '点一下时间加 5 分钟',
+    statsToday: '今日 {n} 轮 · {m} 分',
+    statsStreak: '连续 {n} 天',
+    extended: '已加 5 分钟',
     noteLabel: '专注笔记',
     notePlaceholder: '这次要专注什么？',
     exportTxt: '导出 TXT',
@@ -300,6 +383,7 @@ const UI_TEXT = {
     background: '背景图片',
     backgroundShort: '背景',
     backgroundClear: '移除背景',
+    backgroundReset: '恢复默认背景',
     backgroundSet: '背景图片已应用',
     backgroundCleared: '背景已移除',
     backgroundError: '无法加载这张图片',
@@ -335,7 +419,7 @@ const UI_TEXT = {
     reset: 'リセット',
     resetConfirm: 'もう一度 Esc または R を押すと現在のタイマーを破棄します。',
     again: 'もう一度',
-    newTimer: '新しいタイマー',
+    newTimer: '新規作成',
     pin: 'ピン留め',
     pinned: 'ピン留め済み',
     pinTitle: '他のウィンドウの前面に固定',
@@ -352,7 +436,7 @@ const UI_TEXT = {
     audio: 'アラーム音を選択',
     audioSet: 'カスタムアラーム音の準備ができました',
     audioError: 'この音声ファイルを読み込めません',
-    mute: 'アラームをミュート',
+    mute: 'ミュート',
     unmute: 'ミュートを解除',
     mutedStatus: 'アラームをミュートしました',
     unmutedStatus: 'ミュートを解除しました',
@@ -366,6 +450,29 @@ const UI_TEXT = {
     runMode: 'タイマーモード',
     modeCountdown: 'カウントダウン',
     modeStopwatch: 'ストップウォッチ',
+    modePomodoro: 'ポモドーロ',
+    helpTitle: '使い方',
+    help1: 'カウントダウン・ストップウォッチ・ポモドーロを選び、時間を決めて「開始」を押します。',
+    help2: 'カプセルやミニのリングをドラッグするとウィンドウが動きます。',
+    help3: 'カプセルにマウスを乗せるとパネルが開きます：一時停止・リセット・ミュート・固定。',
+    help4: 'カウントダウン終了後、時間をクリックすると 5 分追加できます。',
+    help5: 'グローバルキー：Ctrl+Alt+Space で一時停止、Ctrl+Alt+R でリセット。',
+    help6: '背景・言語・プリセットは設定カードにあります。',
+    updateCheck: '更新を確認',
+    updateChecking: '更新を確認しています…',
+    updateLatest: '最新バージョンです（v{v}）。',
+    updateFound: '新しいバージョン v{v} があります。',
+    updateDownloading: 'ダウンロード中… {p}%',
+    updateReady: 'ダウンロード完了。もう一度更新ボタンを押すとインストールします。',
+    updateFailed: '更新を確認できませんでした。',
+    updateInstalling: 'インストーラーを起動しています…',
+    roundLabel: '{n}/{total} ラウンド',
+    breakShortRunning: '短い休憩',
+    breakLongRunning: '長い休憩',
+    extendHint: '時間をクリックで +5 分',
+    statsToday: '今日 {n} 回 · {m} 分',
+    statsStreak: '{n} 日連続',
+    extended: '5 分追加しました',
     noteLabel: 'フォーカスメモ',
     notePlaceholder: '何に集中しますか？',
     exportTxt: 'TXTを書き出す',
@@ -374,6 +481,7 @@ const UI_TEXT = {
     background: '背景画像',
     backgroundShort: '背景',
     backgroundClear: '背景を削除',
+    backgroundReset: 'デフォルトの背景に戻す',
     backgroundSet: '背景画像を設定しました',
     backgroundCleared: '背景を削除しました',
     backgroundError: '画像を読み込めませんでした',
@@ -396,6 +504,13 @@ let resetArmed = false;
 let resetNoticeTimer = null;
 let presets = [];
 let displayMode = 'setup';
+// Which mode the current native window footprint belongs to. Null until the
+// first successful resize, so a boot after a reload always re-syncs the window
+// even when the renderer already believes it is in "setup".
+let sizedMode = null;
+// Set when the capsule was opened by clicking the mini circle; leaving the
+// capsule then collapses back to mini ("peek" behaviour).
+let peekFromMini = false;
 let customAudioPath = '';
 let backgroundToken = '';
 let customAudioUrl = '';
@@ -406,6 +521,11 @@ let alarmAudioSource = '';
 let alarmMuted = false;
 let lastTickSecond = null;
 let runMode = 'countdown';
+let pomodoroRound = 1;
+let pomodoroPhase = 'focus';
+let pomodoroFocusMs = DEFAULT_POMODORO_FOCUS_MS;
+let pomodoroTimer = null;
+let stats = {};
 let elapsedBase = 0;
 let startedAt = 0;
 let activeNote = '';
@@ -564,7 +684,7 @@ function localStamp(date = new Date()) {
   );
 }
 
-function recordSession(seconds) {
+function recordSession(seconds, countTowardStats = true) {
   if (sessionRecorded || !Number.isFinite(seconds) || seconds < 1) {
     return;
   }
@@ -577,6 +697,11 @@ function recordSession(seconds) {
   });
   logs = logs.slice(0, 100);
   sessionRecorded = true;
+
+  if (countTowardStats) {
+    recordStats(seconds);
+  }
+
   persistLogs();
 }
 
@@ -709,8 +834,17 @@ function applyLastConfig() {
 }
 
 function setRunMode(nextMode) {
-  runMode = nextMode === 'stopwatch' ? 'stopwatch' : 'countdown';
+  runMode =
+    nextMode === 'stopwatch'
+      ? 'stopwatch'
+      : nextMode === 'pomodoro'
+        ? 'pomodoro'
+        : 'countdown';
   widget.classList.toggle('is-stopwatch', runMode === 'stopwatch');
+  widget.classList.toggle('is-pomodoro', runMode === 'pomodoro');
+  pomodoroRound = 1;
+  pomodoroPhase = 'focus';
+  stopPomodoroTimer();
 
   if (runModeSelect) {
     runModeSelect.value = runMode;
@@ -829,6 +963,10 @@ function setLanguage(nextLanguage) {
 function applyLanguage() {
   const table = UI_TEXT[currentLanguage] || UI_TEXT[DEFAULT_LANGUAGE];
 
+  if (typeof bridge?.setLanguage === 'function') {
+    bridge.setLanguage(currentLanguage);
+  }
+
   for (const element of document.querySelectorAll('[data-i18n]')) {
     const value = table[element.dataset.i18n];
 
@@ -881,20 +1019,41 @@ function applyLanguage() {
 }
 
 /**
- * Switching modes resizes a transparent frameless window. The main process
- * hides the window for that one resize tick, so the compositor never stretches
- * the previous frame; here we only have to apply the new layout and the select
- * state, then ask for the resize immediately (no waiting, or the window would
- * be shown with the old layout still applied).
+ * Every display mode has its own layout *and* its own native window size, and
+ * the two cannot change on the same frame: the CSS layout snaps instantly while
+ * the window is eased over ~220 ms by the main process. Resizing a transparent
+ * window while it still paints the previous frame is what made the old build
+ * show stretched or clipped content, so the scene is faded out first, the
+ * layout and the window are changed while nothing is visible, and the new scene
+ * fades in once the window has settled.
  */
-async function applyDisplayMode(nextMode) {
-  if (!DISPLAY_MODES.has(nextMode)) {
-    return;
-  }
+const MODE_FADE_MS = 120;
+/* The fullscreen exit waits for the OS to hand the window back (up to 700 ms on
+   Windows) and only then animates the bounds, so this net has to be generous.
+   A premature reveal is what let the old layout show up stretched. */
+const MODE_SETTLE_TIMEOUT_MS = 3000;
+let modeTransitionToken = 0;
 
-  displayMode = nextMode;
-  widget.dataset.mode = nextMode;
+function wait(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
 
+function nextPaint() {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(resolve));
+  });
+}
+
+function prefersReducedMotion() {
+  return (
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  );
+}
+
+function syncDisplayModeControls(nextMode) {
   if (modeSelect) {
     modeSelect.value = DISPLAY_MODE_ORDER.includes(nextMode) ? nextMode : '';
   }
@@ -905,13 +1064,80 @@ async function applyDisplayMode(nextMode) {
       String(button.dataset.displayMode === nextMode)
     );
   }
+}
+
+async function applyDisplayMode(nextMode) {
+  if (!DISPLAY_MODES.has(nextMode)) {
+    return;
+  }
+
+  syncDisplayModeControls(nextMode);
+
+  if (nextMode === displayMode && widget.dataset.mode === nextMode && sizedMode === nextMode) {
+    return;
+  }
+
+  // Any explicit mode change cancels a pending mini "peek": otherwise a stale
+  // peek (e.g. mini -> capsule -> fullscreen -> capsule) would bounce the
+  // window back to mini as soon as the pointer leaves the restored capsule.
+  if (nextMode !== 'capsule') {
+    peekFromMini = false;
+  }
+
+  const token = ++modeTransitionToken;
+  const animate =
+    !prefersReducedMotion() && Boolean(widget.dataset.mode) && !document.hidden;
+
+  if (animate) {
+    widget.classList.add('is-mode-switching');
+    await wait(MODE_FADE_MS);
+
+    if (token !== modeTransitionToken) {
+      return;
+    }
+
+    // Submit at least one fully transparent frame before the window changes
+    // size. Without it the compositor can reuse the last (partially faded)
+    // frame and stretch it across the new bounds.
+    await nextPaint();
+
+    if (token !== modeTransitionToken) {
+      return;
+    }
+  }
+
+  displayMode = nextMode;
+  widget.dataset.mode = nextMode;
 
   if (typeof bridge?.setDisplayMode === 'function') {
     try {
-      await bridge.setDisplayMode(nextMode);
+      await Promise.race([
+        bridge.setDisplayMode(nextMode),
+        wait(MODE_SETTLE_TIMEOUT_MS)
+      ]);
+      // The main process keeps its own idea of the window footprint; after a
+      // renderer reload it is still on the old mode, so remember which mode the
+      // current window actually matches instead of trusting `displayMode`.
+      sizedMode = nextMode;
     } catch (error) {
       console.error('NanoTimer: could not resize for display mode.', error);
     }
+  }
+
+  if (token !== modeTransitionToken) {
+    return;
+  }
+
+  if (animate) {
+    // Paint one frame at the final size before revealing it, so the fade-in
+    // never starts on a half-resized window.
+    await nextPaint();
+
+    if (token !== modeTransitionToken) {
+      return;
+    }
+
+    widget.classList.remove('is-mode-switching');
   }
 }
 
@@ -985,6 +1211,14 @@ function renderRemaining(ms) {
 
   if (timeDisplay.textContent !== nextDisplay) {
     timeDisplay.textContent = nextDisplay;
+
+    if (typeof bridge?.updateTray === 'function') {
+      const suffix =
+        runMode === 'pomodoro' && mode !== 'setup'
+          ? ` · ${pomodoroRoundText()}`
+          : '';
+      bridge.updateTray(`NanoTimer — ${nextDisplay}${suffix}`);
+    }
   }
 }
 
@@ -993,6 +1227,103 @@ function stopTicking() {
     window.clearInterval(tickId);
     tickId = null;
   }
+}
+
+function openHelp() {
+  if (!helpSheet) {
+    return;
+  }
+
+  helpSheet.hidden = false;
+  helpCloseButton?.focus();
+}
+
+function closeHelp() {
+  if (!helpSheet || helpSheet.hidden) {
+    return;
+  }
+
+  helpSheet.hidden = true;
+  helpButton?.focus();
+}
+
+function isHelpOpen() {
+  return Boolean(helpSheet) && !helpSheet.hidden;
+}
+
+let updateState = 'idle';
+let downloadedUpdate = null;
+
+function showNotice(text, tone = 'info') {
+  if (!formMessage) {
+    return;
+  }
+
+  formMessage.textContent = text;
+  formMessage.classList.toggle('is-error', tone === 'error');
+  formMessage.classList.toggle('is-ok', tone === 'ok');
+}
+
+async function runUpdateFlow() {
+  if (!bridge?.checkForUpdate) {
+    return;
+  }
+
+  if (updateState === 'downloaded' && downloadedUpdate) {
+    showNotice(t('updateInstalling'));
+    const started = await bridge.installUpdate(downloadedUpdate.path);
+    updateState = started ? 'installing' : 'idle';
+
+    if (!started) {
+      showNotice(t('updateFailed'), 'error');
+    }
+    return;
+  }
+
+  if (updateState === 'checking' || updateState === 'downloading') {
+    return;
+  }
+
+  updateState = 'checking';
+  updateButton?.classList.add('is-busy');
+  showNotice(t('updateChecking'));
+
+  let result = null;
+
+  try {
+    result = await bridge.checkForUpdate();
+  } catch (error) {
+    result = null;
+  }
+
+  updateButton?.classList.remove('is-busy');
+
+  if (!result || result.status !== 'ok') {
+    updateState = 'idle';
+    showNotice(t('updateFailed'), 'error');
+    return;
+  }
+
+  if (!result.newer || !result.url) {
+    updateState = 'idle';
+    showNotice(t('updateLatest').replace('{v}', result.current), 'ok');
+    return;
+  }
+
+  showNotice(t('updateFound').replace('{v}', result.latest));
+  updateState = 'downloading';
+
+  const download = await bridge.downloadUpdate(result.url, result.name);
+
+  if (!download || !download.ok) {
+    updateState = 'idle';
+    showNotice(t('updateFailed'), 'error');
+    return;
+  }
+
+  downloadedUpdate = download;
+  updateState = 'downloaded';
+  showNotice(t('updateReady'), 'ok');
 }
 
 function setFormMessage(descriptor) {
@@ -1167,9 +1498,13 @@ function renderMuteState() {
     return;
   }
 
-  const label = alarmMuted ? t('unmute') : t('mute');
+  // A constant, short label in every language (the capsule row only has ~63px
+  // per button, and "ミュートを解除" is 77px wide). Like the pin button, the
+  // mute state is carried by aria-pressed and the accent styling; the tooltip
+  // says what the next click will do.
+  const label = t('mute');
   muteButton.textContent = label;
-  muteButton.title = label;
+  muteButton.title = alarmMuted ? t('unmute') : t('mute');
   muteButton.setAttribute('aria-label', label);
   muteButton.setAttribute('aria-pressed', String(alarmMuted));
 }
@@ -1664,7 +1999,13 @@ function startStopwatch() {
 
 function finishCountdown() {
   stopTicking();
-  recordSession(totalMs / 1000);
+
+  const isPomodoroBreak = runMode === 'pomodoro' && pomodoroPhase !== 'focus';
+
+  if (!isPomodoroBreak) {
+    recordSession(totalMs / 1000);
+  }
+
   remainingMs = 0;
   renderRemaining(0);
   setMode('complete');
@@ -1672,6 +2013,153 @@ function finishCountdown() {
   announce(t('timesUp'));
   notifyCompletion();
   startAlarmLoop();
+
+  if (runMode === 'pomodoro') {
+    schedulePomodoroNext();
+  }
+}
+
+function pomodoroRoundText() {
+  return t('roundLabel')
+    .replace('{n}', String(pomodoroRound))
+    .replace('{total}', String(POMODORO_ROUNDS));
+}
+
+function stopPomodoroTimer() {
+  if (pomodoroTimer !== null) {
+    window.clearTimeout(pomodoroTimer);
+    pomodoroTimer = null;
+  }
+}
+
+function dayKey(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function loadStats() {
+  try {
+    const raw = window.localStorage.getItem(STATS_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    stats = parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (error) {
+    stats = {};
+  }
+  return stats;
+}
+
+function persistStats() {
+  try {
+    window.localStorage.setItem(STATS_KEY, JSON.stringify(stats));
+  } catch (error) {
+    // Storage is optional.
+  }
+}
+
+function recordStats(seconds) {
+  if (!Number.isFinite(seconds) || seconds < 1) {
+    return;
+  }
+
+  const key = dayKey();
+  const entry = stats[key] || { sessions: 0, seconds: 0 };
+  entry.sessions += 1;
+  entry.seconds += Math.round(seconds);
+  stats[key] = entry;
+  // Keep a year of history; anything older is dropped on write.
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 365);
+  const cutoffKey = dayKey(cutoff);
+  for (const stored of Object.keys(stats)) {
+    if (stored < cutoffKey) {
+      delete stats[stored];
+    }
+  }
+  persistStats();
+}
+
+function currentStreak() {
+  let streak = 0;
+  const cursor = new Date();
+
+  if (!stats[dayKey(cursor)] || !stats[dayKey(cursor)].sessions) {
+    cursor.setDate(cursor.getDate() - 1);
+  }
+
+  while (true) {
+    const entry = stats[dayKey(cursor)];
+    if (!entry || !entry.sessions) {
+      break;
+    }
+    streak += 1;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+
+  return streak;
+}
+
+function statsFooterText() {
+  const entry = stats[dayKey()];
+  const sessions = entry ? entry.sessions : 0;
+  const minutes = entry ? Math.round(entry.seconds / 60) : 0;
+  const streak = currentStreak();
+
+  if (!sessions) {
+    return streak > 1
+      ? t('statsStreak').replace('{n}', String(streak))
+      : t('ready');
+  }
+
+  let text = t('statsToday')
+    .replace('{n}', String(sessions))
+    .replace('{m}', String(minutes));
+
+  if (streak > 1) {
+    text += ` · ${t('statsStreak').replace('{n}', String(streak))}`;
+  }
+
+  return text;
+}
+
+function schedulePomodoroNext() {
+  stopPomodoroTimer();
+  pomodoroTimer = window.setTimeout(() => {
+    pomodoroTimer = null;
+
+    if (runMode !== 'pomodoro') {
+      return;
+    }
+
+    let nextMs;
+
+    if (pomodoroPhase === 'focus') {
+      pomodoroPhase = pomodoroRound >= POMODORO_ROUNDS ? 'long' : 'short';
+      nextMs = pomodoroPhase === 'long' ? POMODORO_LONG_MS : POMODORO_SHORT_MS;
+    } else {
+      pomodoroRound =
+        pomodoroPhase === 'long'
+          ? 1
+          : Math.min(POMODORO_ROUNDS, pomodoroRound + 1);
+      pomodoroPhase = 'focus';
+      nextMs = pomodoroFocusMs;
+    }
+
+    stopAlarm();
+    startCountdown(nextMs);
+  }, POMODORO_BREAK_DELAY_MS);
+}
+
+function extendTimer() {
+  if (mode !== 'complete' || runMode === 'stopwatch') {
+    return;
+  }
+
+  stopAlarm();
+  stopPomodoroTimer();
+  announce(t('extended'));
+  startCountdown(EXTEND_MS);
 }
 
 function togglePause() {
@@ -1803,10 +2291,13 @@ function resetToSetup() {
     (mode === 'running' || mode === 'paused') &&
     remainingMs > 0
   ) {
+    // Abandoning a timer still writes a log row (the export should show the
+    // time that was actually spent), but it never counts as a completed round.
     recordSession(
       runMode === 'stopwatch'
         ? remainingMs / 1000
-        : (totalMs - remainingMs) / 1000
+        : (totalMs - remainingMs) / 1000,
+      false
     );
   }
 
@@ -1836,21 +2327,34 @@ function resetToSetup() {
 }
 
 function renderModeLabels() {
+  if (timerLabel) {
+    timerLabel.textContent =
+      runMode === 'pomodoro' && mode !== 'setup'
+        ? pomodoroRoundText()
+        : t('focusCapsule');
+  }
+
   if (mode === 'setup') {
     pauseButton.textContent = t('pause');
     resetButton.textContent = t('reset');
     timerStatus.textContent = t('focusing');
-    footerStatus.textContent = t('ready');
+    footerStatus.textContent = statsFooterText();
     return;
   }
 
   if (mode === 'running') {
     pauseButton.textContent = t('pause');
     resetButton.textContent = t('reset');
-    timerStatus.textContent =
-      runMode === 'stopwatch' ? t('stopwatchRunning') : t('focusing');
-    footerStatus.textContent =
-      runMode === 'stopwatch' ? t('stopwatchRunning') : t('focusing');
+    const runningKey =
+      runMode === 'stopwatch'
+        ? 'stopwatchRunning'
+        : runMode === 'pomodoro' && pomodoroPhase === 'short'
+          ? 'breakShortRunning'
+          : runMode === 'pomodoro' && pomodoroPhase === 'long'
+            ? 'breakLongRunning'
+            : 'focusing';
+    timerStatus.textContent = t(runningKey);
+    footerStatus.textContent = t(runningKey);
     return;
   }
 
@@ -1864,7 +2368,7 @@ function renderModeLabels() {
 
   pauseButton.textContent = t('again');
   resetButton.textContent = t('newTimer');
-  timerStatus.textContent = t('timesUp');
+  timerStatus.textContent = `${t('timesUp')} · ${t('extendHint')}`;
   footerStatus.textContent = t('timesUp');
 }
 
@@ -1931,8 +2435,29 @@ timerForm.addEventListener('submit', (event) => {
   });
 
   persistLastConfig(result.values);
+
+  if (runMode === 'pomodoro') {
+    pomodoroFocusMs = result.durationMs;
+    pomodoroRound = 1;
+    pomodoroPhase = 'focus';
+  }
+
   startCountdown(result.durationMs);
 });
+
+if (timeDisplay) {
+  timeDisplay.addEventListener('click', extendTimer);
+}
+
+if (typeof bridge?.onGlobalAction === 'function') {
+  bridge.onGlobalAction((action) => {
+    if (action === 'toggle') {
+      togglePause();
+    } else if (action === 'reset') {
+      resetToSetup();
+    }
+  });
+}
 
 pauseButton.addEventListener('click', togglePause);
 resetButton.addEventListener('click', resetToSetup);
@@ -1981,6 +2506,16 @@ if (capsuleCloseButton && typeof bridge?.close === 'function') {
 }
 
 let dragState = null;
+// Set synchronously on pointerdown and cleared on pointerup/cancel. The window
+// origin has to be fetched over IPC before the drag can start, so without this
+// flag a fast click (pointerup before the IPC round-trip finished) left a stale
+// dragState behind and the next mouse move dragged the window with no button
+// held.
+let dragPressPointerId = null;
+// True once a press actually moved the window. The mini "peek" opens on click,
+// and a click still fires after a drag, so the click handler has to know the
+// press was a drag rather than a tap.
+let dragMoved = false;
 
 function isWindowControl(target) {
   return (
@@ -1993,61 +2528,114 @@ function isWindowControl(target) {
   );
 }
 
-document.addEventListener('pointerdown', async (event) => {
+function stopWindowDrag() {
+  const wasDragging = dragPressPointerId !== null || dragState !== null;
+
+  dragState = null;
+  dragPressPointerId = null;
+  document.body.classList.remove('is-dragging');
+
+  if (wasDragging && typeof bridge?.setDragging === 'function') {
+    bridge.setDragging(false);
+  }
+}
+
+document.addEventListener('pointerdown', (event) => {
+  const pressTarget = event.target;
+
+  // Only a press that lands on the visible widget starts a drag. The capsule
+  // and mini windows are deliberately larger than the pill/circle so the
+  // capsule can expand on hover; that transparent margin belongs to the
+  // desktop, so pressing it must not move the window.
   if (
     event.button !== 0 ||
+    !(pressTarget instanceof Element) ||
+    !pressTarget.closest('.widget') ||
+    dragState ||
     displayMode === 'fullscreen' ||
-    isWindowControl(event.target) ||
+    isWindowControl(pressTarget) ||
+    (pressTarget instanceof Element && pressTarget.closest('.help-sheet')) ||
     typeof bridge?.getWindowPosition !== 'function' ||
     typeof bridge?.setWindowPosition !== 'function'
   ) {
     return;
   }
 
+  dragMoved = false;
+
+  const pointerId = event.pointerId;
   const startX = event.screenX;
   const startY = event.screenY;
+  const captureTarget = event.target;
+  dragPressPointerId = pointerId;
 
-  try {
-    const bounds =
-      typeof bridge.getWindowBounds === 'function'
-        ? await bridge.getWindowBounds()
-        : null;
-    const origin =
-      bounds &&
-      Number.isFinite(bounds.x) &&
-      Number.isFinite(bounds.y) &&
-      Number.isFinite(bounds.width) &&
-      Number.isFinite(bounds.height)
-        ? bounds
-        : await bridge.getWindowPosition();
+  const beginDrag = async () => {
+    try {
+      const bounds =
+        typeof bridge.getWindowBounds === 'function'
+          ? await bridge.getWindowBounds()
+          : null;
+      const origin =
+        bounds &&
+        Number.isFinite(bounds.x) &&
+        Number.isFinite(bounds.y) &&
+        Number.isFinite(bounds.width) &&
+        Number.isFinite(bounds.height)
+          ? bounds
+          : await bridge.getWindowPosition();
 
-    const originX = Array.isArray(origin) ? origin[0] : origin.x;
-    const originY = Array.isArray(origin) ? origin[1] : origin.y;
+      const originX = Array.isArray(origin) ? origin[0] : origin.x;
+      const originY = Array.isArray(origin) ? origin[1] : origin.y;
 
-    if (!Number.isFinite(originX) || !Number.isFinite(originY)) {
-      return;
+      // Released (or a newer press started) while the bounds were in flight.
+      if (dragPressPointerId !== pointerId) {
+        return;
+      }
+
+      if (!Number.isFinite(originX) || !Number.isFinite(originY)) {
+        return;
+      }
+
+      dragState = {
+        pointerId,
+        startX,
+        startY,
+        windowX: originX,
+        windowY: originY,
+        width: Array.isArray(origin) ? undefined : origin.width,
+        height: Array.isArray(origin) ? undefined : origin.height
+      };
+
+      document.body.classList.add('is-dragging');
+
+      if (typeof bridge.setDragging === 'function') {
+        bridge.setDragging(true);
+      }
+
+      if (typeof captureTarget?.setPointerCapture === 'function') {
+        try {
+          captureTarget.setPointerCapture(pointerId);
+        } catch (error) {
+          // Capture is a nicety: drags still work without it.
+        }
+      }
+    } catch (error) {
+      stopWindowDrag();
     }
+  };
 
-    dragState = {
-      pointerId: event.pointerId,
-      startX,
-      startY,
-      windowX: originX,
-      windowY: originY,
-      width: Array.isArray(origin) ? undefined : origin.width,
-      height: Array.isArray(origin) ? undefined : origin.height
-    };
-
-    if (typeof event.target?.setPointerCapture === 'function') {
-      event.target.setPointerCapture(event.pointerId);
-    }
-  } catch (error) {
-    dragState = null;
-  }
+  beginDrag();
 });
 
 document.addEventListener('pointermove', (event) => {
   if (!dragState || event.pointerId !== dragState.pointerId) {
+    return;
+  }
+
+  // The button can be released outside the window without a pointerup landing
+  // here; trust the button state over the last event we saw.
+  if ((event.buttons & 1) !== 1) {
+    stopWindowDrag();
     return;
   }
 
@@ -2059,6 +2647,7 @@ document.addEventListener('pointermove', (event) => {
   }
 
   event.preventDefault();
+  dragMoved = true;
   bridge.setWindowPosition(
     dragState.windowX + dx,
     dragState.windowY + dy,
@@ -2068,13 +2657,20 @@ document.addEventListener('pointermove', (event) => {
 });
 
 function endWindowDrag(event) {
-  if (dragState && event.pointerId === dragState.pointerId) {
-    dragState = null;
+  if (event && dragState && event.pointerId !== dragState.pointerId) {
+    return;
   }
+
+  if (event && dragPressPointerId !== null && event.pointerId !== dragPressPointerId) {
+    return;
+  }
+
+  stopWindowDrag();
 }
 
 document.addEventListener('pointerup', endWindowDrag);
 document.addEventListener('pointercancel', endWindowDrag);
+window.addEventListener('blur', stopWindowDrag);
 
 if (exitFullscreenButton) {
   exitFullscreenButton.addEventListener('click', exitFullscreen);
@@ -2104,10 +2700,15 @@ if (modeSelect) {
 // Clicking the mini circle opens the capsule control panel; when the pointer
 // leaves that panel we go back to mini, so the click feels like "peek" rather
 // than a permanent mode change.
-let peekFromMini = false;
-
 timerView.addEventListener('click', (event) => {
   const target = event.target;
+
+  // A drag that started on the circle also ends with a click event; moving the
+  // window should not count as "open the capsule".
+  if (dragMoved) {
+    dragMoved = false;
+    return;
+  }
 
   if (
     displayMode === 'mini' &&
@@ -2133,7 +2734,50 @@ function isInteractiveTarget(target) {
   );
 }
 
+helpButton?.addEventListener('click', () => {
+  if (isHelpOpen()) {
+    closeHelp();
+  } else {
+    openHelp();
+  }
+});
+
+helpCloseButton?.addEventListener('click', () => closeHelp());
+
+helpSheet?.addEventListener('click', (event) => {
+  if (event.target === helpSheet) {
+    closeHelp();
+  }
+});
+
+updateButton?.addEventListener('click', () => {
+  runUpdateFlow();
+});
+
+if (typeof bridge?.onUpdateProgress === 'function') {
+  bridge.onUpdateProgress((progress) => {
+    if (updateState !== 'downloading' || !progress) {
+      return;
+    }
+
+    const percent = progress.total
+      ? Math.min(100, Math.round((progress.received / progress.total) * 100))
+      : 0;
+
+    showNotice(t('updateDownloading').replace('{p}', percent));
+  });
+}
+
 window.addEventListener('keydown', (event) => {
+  if (isHelpOpen()) {
+    if (event.key === 'Escape' || event.key === 'Esc') {
+      event.preventDefault();
+      event.stopPropagation();
+      closeHelp();
+    }
+    return;
+  }
+
   if (
     event.key.toLowerCase() === 'm' &&
     event.shiftKey &&
@@ -2217,8 +2861,9 @@ try {
 }
 runMode = (() => {
   try {
-    return window.localStorage.getItem(STOPWATCH_KEY) === 'stopwatch'
-      ? 'stopwatch'
+    const stored = window.localStorage.getItem(STOPWATCH_KEY);
+    return stored === 'stopwatch' || stored === 'pomodoro'
+      ? stored
       : 'countdown';
   } catch (error) {
     return 'countdown';
@@ -2226,6 +2871,7 @@ runMode = (() => {
 })();
 buildLanguageOptions();
 applyLastConfig();
+loadStats();
 applyLanguage();
 setRunMode(runMode);
 buildModeOptions();

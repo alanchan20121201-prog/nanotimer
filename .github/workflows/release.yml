@@ -1,0 +1,49 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Checks
+        run: |
+          npm run check
+          npm test
+
+      - name: Build installer and portable exe
+        run: npm run dist
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nanotimer-windows
+          path: |
+            dist/nanotimer-*-setup.exe
+            dist/nanotimer-*-portable.exe
+
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/nanotimer-*-setup.exe
+            dist/nanotimer-*-portable.exe
+          generate_release_notes: true

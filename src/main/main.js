@@ -3,18 +3,22 @@
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
+const { spawn } = require('node:child_process');
 const {
   app,
   BrowserWindow,
   dialog,
   ipcMain,
   Menu,
+  net,
   Notification,
-  screen
+  screen,
+  Tray,
+  globalShortcut
 } = require('electron');
 const { snapPosition } = require('./window-snap');
 
-const APP_ID = 'com.nanotimer.app';
+const APP_ID = 'com.alan.nanotimer';
 const WINDOW_WIDTH = 468;
 const WINDOW_HEIGHT = 378;
 const EDGE_SNAP_DELAY_MS = 120;
@@ -61,21 +65,75 @@ const BACKGROUND_DIRECTORY_NAME = 'backgrounds';
 const BACKGROUND_TOKEN_PATTERN =
   /^[a-f0-9]{32}\.(png|jpe?g|webp|gif|bmp)$/i;
 
-// A portable build should keep its settings beside the executable rather than
-// in a roaming profile that may be read-only for the app's integrity level.
-// Fall back to Electron's default if the install directory is not writable
-// (for example when the app is placed under Program Files).
+// One profile directory for every build (installer and portable) so an
+// update never loses the background image, presets or history. Dropping a
+// `portable.txt` file next to the executable keeps the profile local instead.
+function resolveUserDataDirectory() {
+  const exeDirectory = path.dirname(app.getPath('exe'));
+  const portableMarker = path.join(exeDirectory, 'portable.txt');
+
+  if (fs.existsSync(portableMarker)) {
+    return path.join(exeDirectory, 'nanotimer');
+  }
+
+  const roamingDirectory = path.join(app.getPath('appData'), 'nanotimer');
+
+  // Some machines (locked-down workstations, sandboxed launches) refuse
+  // writes to %APPDATA%. Fall back to a profile next to the executable so the
+  // app still starts with a writable profile instead of losing every setting.
+  try {
+    fs.mkdirSync(roamingDirectory, { recursive: true });
+    return roamingDirectory;
+  } catch (error) {
+    console.warn('nanotimer: appData unwritable, using local profile:', error.message);
+    return path.join(exeDirectory, 'nanotimer');
+  }
+}
+
+function migrateLegacyProfile(target) {
+  const alreadyPopulated =
+    fs.existsSync(target) && fs.readdirSync(target).length > 0;
+
+  if (alreadyPopulated) {
+    return;
+  }
+
+  const candidates = [
+    path.join(path.dirname(app.getPath('exe')), 'NanoTimerData'),
+    path.join(app.getPath('appData'), 'NanoTimer')
+  ];
+
+  for (const candidate of candidates) {
+    if (candidate === target || !fs.existsSync(candidate)) {
+      continue;
+    }
+
+    try {
+      fs.cpSync(candidate, target, { recursive: true });
+      console.log('nanotimer: migrated settings from', candidate);
+      return;
+    } catch (error) {
+      console.warn('nanotimer: could not migrate', candidate, error.message);
+    }
+  }
+}
+
 try {
-  const portableUserData = path.join(path.dirname(app.getPath('exe')), 'NanoTimerData');
-  fs.mkdirSync(portableUserData, { recursive: true });
-  app.setPath('userData', portableUserData);
+  const userDataDirectory = resolveUserDataDirectory();
+  migrateLegacyProfile(userDataDirectory);
+  fs.mkdirSync(userDataDirectory, { recursive: true });
+  app.setPath('userData', userDataDirectory);
 } catch (error) {
-  console.warn('NanoTimer: using default userData directory:', error.message);
+  console.warn('nanotimer: using default userData directory:', error.message);
 }
 
 let mainWindow = null;
 let snapTimer = null;
 let suppressEdgeSnapUntil = 0;
+// Window surface is temporarily transparent while a fullscreen restore is
+// resizing the window (see setWindowDisplayMode).
+let hiddenForResize = false;
+
 let displayState = {
   mode: 'setup',
   restoreBounds: null,
@@ -94,10 +152,15 @@ function clearEdgeSnap() {
  * work area respects the taskbar/dock. Only move when the target differs, so
  * the follow-up move event from setPosition cannot schedule another snap.
  */
+// True while the renderer reports an active pointer drag. The edge snap is
+// deferred until the drag ends so it never yanks the window out from under the
+// pointer when the user pauses near a screen edge.
+let windowDragging = false;
+
 function scheduleEdgeSnap(win) {
   clearEdgeSnap();
 
-  if (Date.now() < suppressEdgeSnapUntil) {
+  if (windowDragging || Date.now() < suppressEdgeSnapUntil) {
     return;
   }
 
@@ -127,11 +190,31 @@ function scheduleEdgeSnap(win) {
   }, EDGE_SNAP_DELAY_MS);
 }
 
-const MODE_TRANSITION_MS = 220;
+const MODE_TRANSITION_MS = 190;
+const FULLSCREEN_LEAVE_TIMEOUT_MS = 700;
 let modeAnimationId = 0;
+let modeAnimationSettle = null;
 
 function easeOutCubic(t) {
   return 1 - (1 - t) ** 3;
+}
+
+/**
+ * Stop the resize currently in flight. The pending promise resolves with
+ * `false`, so whoever is awaiting it can bail out instead of revealing a layout
+ * that no longer matches the window.
+ */
+function cancelWindowAnimation() {
+  if (modeAnimationId) {
+    clearInterval(modeAnimationId);
+    modeAnimationId = 0;
+  }
+
+  if (modeAnimationSettle) {
+    const settle = modeAnimationSettle;
+    modeAnimationSettle = null;
+    settle(false);
+  }
 }
 
 /**
@@ -139,47 +222,111 @@ function easeOutCubic(t) {
  * Anchoring both edges to the centre is what makes a capsule collapse into the
  * mini circle in place (the long axis travels further, the short one barely
  * moves) and makes fullscreen bloom outwards.
+ *
+ * Resolves once the window sits at its target size (or `false` when a newer
+ * transition cancelled this one). The renderer keeps the scene faded out until
+ * then: a transparent window that is resized while it still paints the previous
+ * layout makes the DWM compositor stretch or crop that frame, which is the
+ * flicker this app used to show on every mode change.
  */
-function animateWindowBounds(win, from, to, onDone) {
-  if (modeAnimationId) {
-    clearInterval(modeAnimationId);
-    modeAnimationId = 0;
-  }
+function animateWindowBounds(win, from, to) {
+  cancelWindowAnimation();
 
-  const startedAt = Date.now();
+  return new Promise((resolve) => {
+    const startedAt = Date.now();
+    let settled = false;
+    let timerId = 0;
 
-  const step = () => {
-    if (win.isDestroyed()) {
-      clearInterval(finishedId);
+    const settle = (completed) => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+
+      if (timerId) {
+        clearInterval(timerId);
+      }
+
+      if (modeAnimationId === timerId) {
+        modeAnimationId = 0;
+      }
+
+      if (modeAnimationSettle === settle) {
+        modeAnimationSettle = null;
+      }
+
+      resolve(completed);
+    };
+
+    const step = () => {
+      if (win.isDestroyed()) {
+        settle(false);
+        return;
+      }
+
+      const progress = Math.min(1, (Date.now() - startedAt) / MODE_TRANSITION_MS);
+      const eased = easeOutCubic(progress);
+
+      win.setBounds(
+        {
+          x: Math.round(from.x + (to.x - from.x) * eased),
+          y: Math.round(from.y + (to.y - from.y) * eased),
+          width: Math.max(1, Math.round(from.width + (to.width - from.width) * eased)),
+          height: Math.max(1, Math.round(from.height + (to.height - from.height) * eased))
+        },
+        false
+      );
+
+      if (progress >= 1) {
+        settle(true);
+      }
+    };
+
+    modeAnimationSettle = settle;
+    timerId = setInterval(step, 16);
+    modeAnimationId = timerId;
+    step();
+  });
+}
+
+/**
+ * Leaving fullscreen is asynchronous on Windows: `setFullScreen(false)` returns
+ * before the compositor has handed the window back, and reading the bounds in
+ * that window returns the fullscreen rectangle. Waiting for `leave-full-screen`
+ * (with a timeout as a safety net) keeps the restored geometry honest.
+ */
+function leaveFullScreenAndWait(win) {
+  return new Promise((resolve) => {
+    if (!win.isFullScreen()) {
+      resolve();
       return;
     }
 
-    const progress = Math.min(1, (Date.now() - startedAt) / MODE_TRANSITION_MS);
-    const eased = easeOutCubic(progress);
+    let done = false;
+    let timeoutId = 0;
 
-    win.setBounds(
-      {
-        x: Math.round(from.x + (to.x - from.x) * eased),
-        y: Math.round(from.y + (to.y - from.y) * eased),
-        width: Math.max(1, Math.round(from.width + (to.width - from.width) * eased)),
-        height: Math.max(1, Math.round(from.height + (to.height - from.height) * eased))
-      },
-      false
-    );
-
-    if (progress >= 1) {
-      clearInterval(finishedId);
-      modeAnimationId = 0;
-
-      if (typeof onDone === 'function') {
-        onDone();
+    const finish = () => {
+      if (done) {
+        return;
       }
-    }
-  };
 
-  const finishedId = setInterval(step, 16);
-  modeAnimationId = finishedId;
-  step();
+      done = true;
+      clearTimeout(timeoutId);
+      win.removeListener('leave-full-screen', onLeave);
+      resolve();
+    };
+
+    const onLeave = () => {
+      // Give the OS one task turn to finish restoring the window frame before
+      // anybody reads getBounds() again.
+      setTimeout(finish, 0);
+    };
+
+    timeoutId = setTimeout(finish, FULLSCREEN_LEAVE_TIMEOUT_MS);
+    win.once('leave-full-screen', onLeave);
+    win.setFullScreen(false);
+  });
 }
 
 function clampToWorkArea(win, x, y, width, height) {  const display = screen.getDisplayMatching(win.getBounds());
@@ -203,7 +350,7 @@ function clampToWorkArea(win, x, y, width, height) {  const display = screen.get
  * mode. Fullscreen uses the display's full bounds (not just the work area) and
  * restores the previous position and pin state when the user leaves it.
  */
-function setWindowDisplayMode(win, nextMode) {
+async function setWindowDisplayMode(win, nextMode) {
   if (!win || win.isDestroyed() || !DISPLAY_MODES.has(nextMode)) {
     return false;
   }
@@ -219,9 +366,11 @@ function setWindowDisplayMode(win, nextMode) {
       win.setAlwaysOnTop(true);
       suppressEdgeSnapUntil = Date.now() + 800;
 
-      // Native fullscreen immediately: animating the bounds first and calling
-      // setFullScreen() afterwards left the window half-sized on some setups.
-      win.setFullScreen(true);
+      // Borderless fullscreen instead of win.setFullScreen(true): on Windows the
+      // native transition replays a scaled snapshot of the window for ~150 ms
+      // when it is restored, which showed up as a giant clipped clock over the
+      // desktop. A frameless window sized to the display needs no OS transition
+      // and animates back out exactly like every other mode change.
       win.setBounds(display.bounds, false);
     }
 
@@ -234,18 +383,39 @@ function setWindowDisplayMode(win, nextMode) {
 
   displayState.mode = nextMode;
 
-  if (restoringFromFullscreen) {
-    win.setFullScreen(false);
-    win.setAlwaysOnTop(displayState.wasPinned);
-  }
+  let from;
 
-  const bounds = win.getBounds();
-  const origin = restoringFromFullscreen && restore ? restore : bounds;
+  if (restoringFromFullscreen) {
+    if (win.isFullScreen()) {
+      await leaveFullScreenAndWait(win);
+    }
+
+    if (win.isDestroyed()) {
+      return false;
+    }
+
+    win.setAlwaysOnTop(displayState.wasPinned);
+    from = restore || win.getBounds();
+
+    // The renderer has already faded its content out. Hide the window surface
+    // as well: while a fullscreen window is being restored Windows keeps
+    // presenting the last fullscreen frame, which shows up as giant clipped
+    // digits over the desktop for a few frames.
+    hiddenForResize = true;
+    win.setOpacity(0);
+
+    // Park the window on its pre-fullscreen geometry before animating, so the
+    // first eased frame matches what the user already sees and the card does not
+    // blink at fullscreen size for a frame.
+    win.setBounds(from, false);
+  } else {
+    from = win.getBounds();
+  }
 
   // Keep the centre still: the widget collapses/expands in place instead of
   // jumping to wherever its top-left corner would land.
-  const centerX = origin.x + origin.width / 2;
-  const centerY = origin.y + origin.height / 2;
+  const centerX = from.x + from.width / 2;
+  const centerY = from.y + from.height / 2;
   const position = clampToWorkArea(
     win,
     Math.round(centerX - size.width / 2),
@@ -254,17 +424,24 @@ function setWindowDisplayMode(win, nextMode) {
     size.height
   );
 
-  animateWindowBounds(
-    win,
-    bounds,
-    {
+  suppressEdgeSnapUntil = Date.now() + 600 + MODE_TRANSITION_MS;
+
+  try {
+    await animateWindowBounds(win, from, {
       x: position.x,
       y: position.y,
       width: size.width,
       height: size.height
+    });
+  } finally {
+    if (hiddenForResize) {
+      hiddenForResize = false;
+
+      if (!win.isDestroyed()) {
+        win.setOpacity(1);
+      }
     }
-  );
-  suppressEdgeSnapUntil = Date.now() + 600;
+  }
 
   return true;
 }
@@ -386,7 +563,8 @@ function createMainWindow() {
     width: WINDOW_WIDTH,
     height: WINDOW_HEIGHT,
     center: true,
-    title: 'NanoTimer',
+    title: 'nanotimer',
+    icon: path.join(__dirname, '..', 'renderer', 'icon.png'),
 
     // Frameless + transparent surface.
     frame: false,
@@ -584,13 +762,24 @@ function registerWindowIpc() {
     return win.isAlwaysOnTop();
   });
 
-  ipcMain.handle('window:set-display-mode', (event, mode) => {
+  ipcMain.on('window:drag-state', (event, dragging) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    windowDragging = Boolean(dragging);
+
+    if (!windowDragging && win && !win.isDestroyed()) {
+      scheduleEdgeSnap(win);
+    }
+  });
+
+  ipcMain.handle('window:set-display-mode', async (event, mode) => {
     const win = BrowserWindow.fromWebContents(event.sender);
 
     if (!win) {
       return false;
     }
 
+    // Resolves only after the resize animation finished, so the renderer can
+    // hold the new scene back until the window is the right size.
     return setWindowDisplayMode(win, mode);
   });
 
@@ -707,8 +896,9 @@ function registerWindowIpc() {
 
     try {
       const result = await dialog.showSaveDialog(win, {
-        title: 'Export NanoTimer log',
-        defaultPath: typeof suggestedName === 'string' ? suggestedName : 'NanoTimer-log.txt',
+        title: 'Export nanotimer log',
+        defaultPath:
+          typeof suggestedName === 'string' ? suggestedName : 'nanotimer-log.txt',
         filters: [{ name: 'Text', extensions: ['txt'] }]
       });
 
@@ -724,6 +914,107 @@ function registerWindowIpc() {
     }
   });
 
+  ipcMain.handle('update:check', async () => {
+    try {
+      return await fetchLatestRelease();
+    } catch (error) {
+      return { status: 'error', message: error.message };
+    }
+  });
+
+  ipcMain.handle('update:download', async (event, url, suggestedName) => {
+    if (!isTrustedUpdateUrl(url)) {
+      return { ok: false, message: 'untrusted' };
+    }
+
+    try {
+      const parsed = new URL(String(url));
+      const rawName = String(suggestedName || path.basename(parsed.pathname));
+      const fileName =
+        rawName.replace(/[^\w.-]/g, '_').slice(-80) || 'nanotimer-update.exe';
+      const directory = path.join(
+        app.getPath('userData'),
+        UPDATE_DIRECTORY_NAME
+      );
+
+      await fs.promises.mkdir(directory, { recursive: true });
+
+      const target = path.join(directory, fileName);
+      const response = await net.fetch(parsed.toString());
+
+      if (!response.ok || !response.body) {
+        return { ok: false, message: String(response.status) };
+      }
+
+      const total = Number(response.headers.get('content-length') || 0);
+      let received = 0;
+      let lastReport = 0;
+      const handle = await fs.promises.open(target, 'w');
+
+      try {
+        for await (const chunk of response.body) {
+          await handle.write(chunk);
+          received += chunk.length;
+
+          if (Date.now() - lastReport > 200) {
+            lastReport = Date.now();
+            event.sender.send('update:progress', { received, total });
+          }
+        }
+      } finally {
+        await handle.close();
+      }
+
+      event.sender.send('update:progress', {
+        received,
+        total: total || received
+      });
+
+      return { ok: true, path: target, name: fileName };
+    } catch (error) {
+      return { ok: false, message: error.message };
+    }
+  });
+
+  ipcMain.handle('update:install', async (_event, filePath) => {
+    const directory = path.resolve(
+      app.getPath('userData'),
+      UPDATE_DIRECTORY_NAME
+    );
+    const resolved = path.resolve(String(filePath));
+
+    if (
+      !resolved.startsWith(directory + path.sep) ||
+      !/\.exe$/i.test(resolved) ||
+      !fs.existsSync(resolved)
+    ) {
+      return false;
+    }
+
+    try {
+      // The installer replaces files in place, so the app has to step aside.
+      spawn(resolved, [], { detached: true, stdio: 'ignore' }).unref();
+      app.quit();
+      return true;
+    } catch (error) {
+      console.error('nanotimer: could not start the updater.', error);
+      return false;
+    }
+  });
+
+  ipcMain.on('tray:update', (_event, text) => {
+    if (tray) {
+      tray.setToolTip(String(text).slice(0, 120));
+    }
+  });
+
+  ipcMain.on('app:language', (_event, language) => {
+    trayLanguage = Object.prototype.hasOwnProperty.call(TRAY_LABELS, language)
+      ? language
+      : 'en';
+    buildTrayMenu();
+  });
+
   ipcMain.handle('timer:notify-complete', (event, payload) => {
     if (!BrowserWindow.fromWebContents(event.sender)) {
       return false;
@@ -736,7 +1027,7 @@ function registerWindowIpc() {
     const title =
       typeof payload?.title === 'string'
         ? payload.title.slice(0, 80)
-        : 'NanoTimer';
+        : 'nanotimer';
     const body =
       typeof payload?.body === 'string' ? payload.body.slice(0, 200) : '';
 
@@ -748,6 +1039,196 @@ function registerWindowIpc() {
       return false;
     }
   });
+}
+
+// The repository is read from package.json so a fork only has to change
+// `build.publish` instead of hunting for a second copy of the owner here.
+const PACKAGE_JSON = require('../../package.json');
+const PUBLISH_CONFIG = Array.isArray(PACKAGE_JSON.build?.publish)
+  ? PACKAGE_JSON.build.publish[0]
+  : null;
+const UPDATE_OWNER = PUBLISH_CONFIG?.owner || 'alan';
+const UPDATE_REPO = PUBLISH_CONFIG?.repo || 'nanotimer';
+const UPDATE_DIRECTORY_NAME = 'updates';
+const RELEASE_API = `https://api.github.com/repos/${UPDATE_OWNER}/${UPDATE_REPO}/releases/latest`;
+
+function compareVersions(a, b) {
+  const parse = (value) =>
+    String(value || '0')
+      .replace(/^v/i, '')
+      .split(/[.+-]/)
+      .map((part) => Number.parseInt(part, 10) || 0);
+
+  const left = parse(a);
+  const right = parse(b);
+
+  for (let index = 0; index < Math.max(left.length, right.length); index += 1) {
+    const difference = (left[index] || 0) - (right[index] || 0);
+
+    if (difference !== 0) {
+      return difference;
+    }
+  }
+
+  return 0;
+}
+
+async function fetchLatestRelease() {
+  const response = await net.fetch(RELEASE_API, {
+    headers: {
+      Accept: 'application/vnd.github+json',
+      'User-Agent': `nanotimer/${app.getVersion()}`
+    }
+  });
+
+  if (!response.ok) {
+    return { status: 'error', code: response.status };
+  }
+
+  const release = await response.json();
+  const assets = Array.isArray(release.assets) ? release.assets : [];
+  const asset =
+    assets.find((entry) => /-setup\.exe$/i.test(entry.name)) ||
+    assets.find((entry) => /\.exe$/i.test(entry.name)) ||
+    null;
+
+  return {
+    status: 'ok',
+    current: app.getVersion(),
+    latest: String(release.tag_name || '').replace(/^v/i, ''),
+    newer: compareVersions(release.tag_name, app.getVersion()) > 0,
+    name: asset ? asset.name : '',
+    url: asset ? asset.browser_download_url : release.html_url || '',
+    notes: String(release.body || '').slice(0, 400)
+  };
+}
+
+function isTrustedUpdateUrl(value) {
+  try {
+    const url = new URL(String(value));
+
+    return (
+      url.protocol === 'https:' &&
+      (/(^|\.)github\.com$/.test(url.hostname) ||
+        /(^|\.)githubusercontent\.com$/.test(url.hostname))
+    );
+  } catch (error) {
+    return false;
+  }
+}
+
+const TRAY_LABELS = Object.freeze({
+  en: {
+    show: 'Show window',
+    hide: 'Hide window',
+    toggle: 'Pause or resume',
+    quit: 'Quit'
+  },
+  'zh-TW': {
+    show: '顯示視窗',
+    hide: '隱藏視窗',
+    toggle: '暫停或繼續',
+    quit: '結束'
+  },
+  'zh-CN': {
+    show: '显示窗口',
+    hide: '隐藏窗口',
+    toggle: '暂停或继续',
+    quit: '退出'
+  },
+  ja: {
+    show: 'ウィンドウを表示',
+    hide: 'ウィンドウを隠す',
+    toggle: '一時停止／再開',
+    quit: '終了'
+  }
+});
+
+const GLOBAL_SHORTCUTS = Object.freeze([
+  ['CommandOrControl+Alt+Space', 'toggle'],
+  ['CommandOrControl+Alt+R', 'reset']
+]);
+
+let tray = null;
+let trayLanguage = 'en';
+
+function trayLabel(key) {
+  const table = TRAY_LABELS[trayLanguage] || TRAY_LABELS.en;
+  return table[key] || TRAY_LABELS.en[key];
+}
+
+function sendGlobalAction(action) {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+
+  mainWindow.webContents.send('timer:global-action', action);
+}
+
+function buildTrayMenu() {
+  if (!tray) {
+    return;
+  }
+
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      {
+        label: trayLabel('show'),
+        click: () => {
+          if (!mainWindow) {
+            return;
+          }
+          mainWindow.show();
+          mainWindow.focus();
+        }
+      },
+      {
+        label: trayLabel('hide'),
+        click: () => mainWindow?.hide()
+      },
+      { type: 'separator' },
+      { label: trayLabel('toggle'), click: () => sendGlobalAction('toggle') },
+      { type: 'separator' },
+      { label: trayLabel('quit'), click: () => app.quit() }
+    ])
+  );
+}
+
+function createTray() {
+  try {
+    tray = new Tray(path.join(__dirname, '..', 'renderer', 'icon.png'));
+  } catch (error) {
+    console.error('NanoTimer: could not create the tray icon.', error);
+    tray = null;
+    return;
+  }
+
+  tray.setToolTip('nanotimer');
+  buildTrayMenu();
+  tray.on('click', () => {
+    if (!mainWindow) {
+      return;
+    }
+
+    if (mainWindow.isVisible() && !mainWindow.isMinimized()) {
+      mainWindow.hide();
+    } else {
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+}
+
+function registerGlobalShortcuts() {
+  for (const [accelerator, action] of GLOBAL_SHORTCUTS) {
+    try {
+      globalShortcut.register(accelerator, () => sendGlobalAction(action));
+    } catch (error) {
+      // Another app may already own the combination; the in-window shortcuts
+      // keep working regardless.
+      console.error(`NanoTimer: could not register ${accelerator}.`, error);
+    }
+  }
 }
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
@@ -772,6 +1253,8 @@ if (!hasSingleInstanceLock) {
 
       registerWindowIpc();
       mainWindow = createMainWindow();
+      createTray();
+      registerGlobalShortcuts();
 
       app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) {
@@ -785,6 +1268,15 @@ if (!hasSingleInstanceLock) {
       console.error('Failed to start NanoTimer:', error);
       app.quit();
     });
+
+  app.on('will-quit', () => {
+    globalShortcut.unregisterAll();
+
+    if (tray) {
+      tray.destroy();
+      tray = null;
+    }
+  });
 
   app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') {

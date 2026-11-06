@@ -1,10 +1,10 @@
 {
   "name": "nanotimer",
-  "productName": "NanoTimer",
+  "productName": "nanotimer",
   "version": "1.0.0",
   "private": true,
-  "description": "NanoTimer - a frameless, transparent floating timer widget.",
-  "author": "NanoTimer",
+  "description": "nanotimer - a frameless, transparent floating timer widget for Windows.",
+  "author": "Alan",
   "main": "src/main/main.js",
   "type": "commonjs",
   "scripts": {
@@ -14,17 +14,20 @@
     "test": "node --test test/*.test.js",
     "pack": "electron-builder --dir",
     "package:win": "npm run pack && powershell -NoProfile -ExecutionPolicy Bypass -File scripts/make-launcher.ps1",
-    "dist": "electron-builder --win portable --x64",
-    "dist:win": "electron-builder --win portable --x64"
+    "dist": "electron-builder --win nsis portable --x64",
+    "dist:win": "electron-builder --win nsis portable --x64",
+    "dist:portable": "electron-builder --win portable --x64",
+    "dist:installer": "electron-builder --win nsis --x64"
   },
   "build": {
-    "appId": "com.nanotimer.app",
-    "productName": "NanoTimer",
+    "appId": "com.alan.nanotimer",
+    "productName": "nanotimer",
     "asar": true,
     "npmRebuild": false,
     "compression": "maximum",
     "directories": {
-      "output": "dist"
+      "output": "dist",
+      "buildResources": "build"
     },
     "files": [
       "src/**/*",
@@ -34,17 +37,44 @@
     "win": {
       "target": [
         {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
           "target": "portable",
           "arch": [
             "x64"
           ]
         }
       ],
-      "artifactName": "${productName}-${version}-portable.${ext}"
+      "icon": "build/icon.ico",
+      "legalTrademarks": "nanotimer"
     },
     "portable": {
-      "requestExecutionLevel": "user"
-    }
+      "requestExecutionLevel": "user",
+      "artifactName": "${productName}-${version}-portable.${ext}"
+    },
+    "copyright": "Copyright © 2026 Alan",
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "nanotimer",
+      "artifactName": "${productName}-${version}-setup.${ext}",
+      "deleteAppDataOnUninstall": false
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "alanchan20121201-prog",
+        "repo": "nanotimer",
+        "releaseType": "release"
+      }
+    ]
   },
   "devDependencies": {
     "electron": "45.2.2",
@@ -65,10 +95,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/USERNAME/NanoTimer.git"
+    "url": "https://github.com/alanchan20121201-prog/nanotimer.git"
   },
+  "homepage": "https://github.com/alanchan20121201-prog/nanotimer",
   "bugs": {
-    "url": "https://github.com/USERNAME/NanoTimer/issues"
-  },
-  "homepage": "https://github.com/USERNAME/NanoTimer#readme"
+    "url": "https://github.com/alanchan20121201-prog/nanotimer/issues"
+  }
 }

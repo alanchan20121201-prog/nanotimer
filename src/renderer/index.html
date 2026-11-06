@@ -2,12 +2,13 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="icon.png" />
     <meta
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src 'self' data: blob:; object-src 'none'; base-uri 'none'; form-action 'none'"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>NanoTimer</title>
+    <title>nanotimer</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
@@ -29,6 +30,28 @@
         </div>
 
         <div class="window-controls no-drag">
+          <button
+            class="window-btn"
+            id="update-button"
+            type="button"
+            aria-label="Check for updates"
+            data-i18n-aria-label="updateCheck"
+            title="Check for updates"
+            data-i18n-title="updateCheck"
+          >
+            <span aria-hidden="true">⟳</span>
+          </button>
+          <button
+            class="window-btn"
+            id="help-button"
+            type="button"
+            aria-label="How to use"
+            data-i18n-aria-label="helpTitle"
+            title="How to use"
+            data-i18n-title="helpTitle"
+          >
+            <span aria-hidden="true">?</span>
+          </button>
           <button
             class="window-btn audio-btn"
             id="audio-button"
@@ -103,13 +126,13 @@
             class="chip-button"
             id="background-clear"
             type="button"
-            title="Remove background"
-            data-i18n-title="backgroundClear"
-            aria-label="Remove background"
-            data-i18n-aria-label="backgroundClear"
+            title="Restore the default background"
+            data-i18n-title="backgroundReset"
+            aria-label="Restore the default background"
+            data-i18n-aria-label="backgroundReset"
             hidden
           >
-            <span aria-hidden="true">×</span>
+            <span aria-hidden="true">↺</span>
           </button>
         </div>
 
@@ -121,6 +144,7 @@
             <select id="run-mode-select" class="run-mode-select">
               <option value="countdown" data-i18n="modeCountdown">Countdown</option>
               <option value="stopwatch" data-i18n="modeStopwatch">Stopwatch</option>
+              <option value="pomodoro" data-i18n="modePomodoro">Pomodoro</option>
             </select>
           </div>
 
@@ -330,6 +354,38 @@
         aria-live="polite"
         aria-atomic="true"
       ></p>
+
+      <div
+        class="help-sheet"
+        id="help-sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="help-title"
+        hidden
+      >
+        <div class="help-head">
+          <h2 class="help-title" id="help-title" data-i18n="helpTitle">
+            How to use
+          </h2>
+          <button
+            class="window-btn help-close"
+            id="help-close"
+            type="button"
+            aria-label="Close"
+            data-i18n-aria-label="close"
+          >
+            &times;
+          </button>
+        </div>
+        <ol class="help-list">
+          <li data-i18n="help1"></li>
+          <li data-i18n="help2"></li>
+          <li data-i18n="help3"></li>
+          <li data-i18n="help4"></li>
+          <li data-i18n="help5"></li>
+          <li data-i18n="help6"></li>
+        </ol>
+      </div>
 
       <footer class="statusbar">
         <span class="status">

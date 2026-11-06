@@ -14,6 +14,8 @@ out/
 
 # Portable user data (created next to the executable or in node_modules during dev)
 NanoTimerData/
+nanotimer/
+portable.txt
 
 # Logs and scratch captures
 *.log

@@ -1073,19 +1073,72 @@ function compareVersions(a, b) {
   return 0;
 }
 
-async function fetchLatestRelease() {
-  const response = await net.fetch(RELEASE_API, {
-    headers: {
-      Accept: 'application/vnd.github+json',
-      'User-Agent': `nanotimer/${app.getVersion()}`
-    }
-  });
+// Fallback that does not touch the REST API: the releases Atom feed lists the
+// newest tag and is served to everyone without a rate limit, so a machine that
+// has burned its 60 anonymous API calls per hour still sees updates.
+async function fetchLatestReleaseFromFeed() {
+  try {
+    const response = await net.fetch(
+      `https://github.com/${UPDATE_OWNER}/${UPDATE_REPO}/releases.atom`,
+      {
+        redirect: 'follow',
+        headers: { 'User-Agent': `nanotimer/${app.getVersion()}` }
+      }
+    );
 
-  if (!response.ok) {
-    return { status: 'error', code: response.status };
+    if (!response.ok) {
+      return null;
+    }
+
+    const body = await response.text();
+    const match = body.match(/\/releases\/tag\/([^"<]+)/);
+
+    if (!match) {
+      return null;
+    }
+
+    const latest = decodeURIComponent(match[1]).replace(/^v/i, '');
+    const assetName = `${PACKAGE_JSON.name}-${latest}-setup.exe`;
+
+    return {
+      status: 'ok',
+      current: app.getVersion(),
+      latest,
+      newer: compareVersions(latest, app.getVersion()) > 0,
+      name: assetName,
+      url: `https://github.com/${UPDATE_OWNER}/${UPDATE_REPO}/releases/download/v${latest}/${assetName}`,
+      notes: ''
+    };
+  } catch (error) {
+    console.warn('nanotimer: release feed failed', error && error.message);
+    return null;
+  }
+}
+
+async function fetchLatestRelease() {
+  let release = null;
+
+  try {
+    const response = await net.fetch(RELEASE_API, {
+      headers: {
+        Accept: 'application/vnd.github+json',
+        'User-Agent': `nanotimer/${app.getVersion()}`
+      }
+    });
+
+    if (response.ok) {
+      release = await response.json();
+    }
+  } catch (error) {
+    console.warn('nanotimer: release api failed', error && error.message);
+    release = null;
   }
 
-  const release = await response.json();
+  if (!release) {
+    const fallback = await fetchLatestReleaseFromFeed();
+
+    return fallback || { status: 'error' };
+  }
   const assets = Array.isArray(release.assets) ? release.assets : [];
   const asset =
     assets.find((entry) => /-setup\.exe$/i.test(entry.name)) ||

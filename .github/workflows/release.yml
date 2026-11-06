@@ -29,7 +29,9 @@ jobs:
           npm test
 
       - name: Build installer and portable exe
-        run: npm run dist
+        # --publish never keeps electron-builder from trying to create the
+        # release itself (it would need GH_TOKEN); the step below uploads.
+        run: npm run dist -- --publish never
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

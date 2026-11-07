@@ -75,6 +75,13 @@ const BACKGROUND_TOKEN_PATTERN =
 // update never loses the background image, presets or history. Dropping a
 // `portable.txt` file next to the executable keeps the profile local instead.
 function resolveUserDataDirectory() {
+  const override = process.env.NANOTIMER_PROFILE;
+  if (override && override.trim()) {
+    const resolved = path.resolve(override.trim());
+    fs.mkdirSync(resolved, { recursive: true });
+    return resolved;
+  }
+
   const exeDirectory = path.dirname(app.getPath('exe'));
   const portableMarker = path.join(exeDirectory, 'portable.txt');
 
@@ -89,6 +96,11 @@ function resolveUserDataDirectory() {
   // app still starts with a writable profile instead of losing every setting.
   try {
     fs.mkdirSync(roamingDirectory, { recursive: true });
+    // mkdir can succeed while the directory is still read-only for us, so
+    // prove it is writable before handing it to Chromium.
+    const probe = path.join(roamingDirectory, '.write-probe');
+    fs.writeFileSync(probe, 'ok');
+    fs.unlinkSync(probe);
     return roamingDirectory;
   } catch (error) {
     console.warn('nanotimer: appData unwritable, using local profile:', error.message);

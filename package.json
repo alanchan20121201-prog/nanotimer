@@ -1,7 +1,7 @@
 {
   "name": "nanotimer",
   "productName": "nanotimer",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "private": true,
   "description": "nanotimer - a frameless, transparent floating timer widget for Windows.",
   "author": "Alan",
@@ -74,6 +74,12 @@
         "repo": "nanotimer",
         "releaseType": "release"
       }
+    ],
+    "electronLanguages": [
+      "en-US",
+      "zh-TW",
+      "zh-CN",
+      "ja"
     ]
   },
   "devDependencies": {

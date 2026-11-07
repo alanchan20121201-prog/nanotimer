@@ -24,3 +24,7 @@ portable.txt
 # OS junk
 .DS_Store
 Thumbs.db
+
+# local Chrome profile used while probing the web UI
+promo/
+.dsh-pilot/

@@ -41,6 +41,13 @@ const modeButtons = Array.from(
   document.querySelectorAll('[data-display-mode]')
 );
 const presetSelect = document.querySelector('[data-preset-select]');
+const presetRenameButton = document.querySelector('#preset-rename');
+const presetDeleteButton = document.querySelector('#preset-delete');
+const presetSheet = document.querySelector('#preset-sheet');
+const presetForm = document.querySelector('#preset-form');
+const presetNameInput = document.querySelector('#preset-name');
+const presetSheetClose = document.querySelector('#preset-sheet-close');
+const presetCancelButton = document.querySelector('#preset-cancel');
 const languageSelects = Array.from(
   document.querySelectorAll('[data-language-select]')
 );
@@ -64,7 +71,6 @@ const EXTEND_MS = 5 * 60 * 1000;
 const DISPLAY_MODE_ORDER = ['capsule', 'mini', 'fullscreen'];
 const DISPLAY_MODES = new Set(['setup', ...DISPLAY_MODE_ORDER]);
 const DEFAULT_LANGUAGE = 'en';
-const DEFAULT_PRESETS = [300, 1500, 3000];
 const MAX_PRESET_SECONDS = 99 * 3600 + 59 * 60 + 59;
 const LANGUAGES = [
   { id: 'en', label: 'English' },
@@ -104,6 +110,14 @@ const UI_TEXT = {
     setupTitle: 'Set a focus capsule',
     language: 'Language',
     presets: 'Presets',
+    presetNone: 'No presets',
+    presetNameTitle: 'Preset name',
+    presetSave: 'Save',
+    presetCancel: 'Cancel',
+    presetRename: 'Rename preset',
+    presetDelete: 'Delete preset',
+    presetDeleted: 'Preset deleted',
+    presetRenamed: 'Preset renamed',
     savePreset: 'Save current…',
     presetSaved: 'Preset saved',
     hours: 'Hours',
@@ -202,6 +216,14 @@ const UI_TEXT = {
     setupTitle: '設定專注膠囊',
     language: '語言',
     presets: '預設組合',
+    presetNone: '無設定檔',
+    presetNameTitle: '設定檔名稱',
+    presetSave: '儲存',
+    presetCancel: '取消',
+    presetRename: '重新命名設定檔',
+    presetDelete: '刪除設定檔',
+    presetDeleted: '已刪除設定檔',
+    presetRenamed: '已重新命名設定檔',
     savePreset: '儲存目前設定…',
     presetSaved: '預設組合已儲存',
     hours: '小時',
@@ -300,6 +322,14 @@ const UI_TEXT = {
     setupTitle: '设定专注胶囊',
     language: '语言',
     presets: '预设组合',
+    presetNone: '无预设',
+    presetNameTitle: '预设名称',
+    presetSave: '保存',
+    presetCancel: '取消',
+    presetRename: '重命名预设',
+    presetDelete: '删除预设',
+    presetDeleted: '已删除预设',
+    presetRenamed: '已重命名预设',
     savePreset: '保存当前设置…',
     presetSaved: '预设组合已保存',
     hours: '小时',
@@ -398,6 +428,14 @@ const UI_TEXT = {
     setupTitle: '集中カプセルを設定',
     language: '言語',
     presets: 'プリセット',
+    presetNone: 'プリセットなし',
+    presetNameTitle: 'プリセット名',
+    presetSave: '保存',
+    presetCancel: 'キャンセル',
+    presetRename: 'プリセット名を変更',
+    presetDelete: 'プリセットを削除',
+    presetDeleted: 'プリセットを削除しました',
+    presetRenamed: 'プリセット名を変更しました',
     savePreset: '現在の設定を保存…',
     presetSaved: 'プリセットを保存しました',
     hours: '時間',
@@ -606,35 +644,79 @@ function persistLanguage(language) {
   }
 }
 
+// A preset is { name, seconds }. Older builds stored bare seconds, so both
+// shapes are accepted and normalised on read; nothing is preinstalled.
+function presetLabel(preset) {
+  const name = typeof preset?.name === 'string' ? preset.name.trim() : '';
+  if (name) {
+    return name;
+  }
+
+  return formatDuration(Number(preset?.seconds || 0) * 1000);
+}
+
+function normalizePreset(entry) {
+  if (Number.isInteger(entry)) {
+    if (entry <= 0 || entry > MAX_PRESET_SECONDS) {
+      return null;
+    }
+
+    return { name: '', seconds: entry };
+  }
+
+  if (!entry || typeof entry !== 'object') {
+    return null;
+  }
+
+  const seconds = Number(entry.seconds);
+
+  if (!Number.isInteger(seconds) || seconds <= 0 || seconds > MAX_PRESET_SECONDS) {
+    return null;
+  }
+
+  const name = typeof entry.name === 'string' ? entry.name.slice(0, 24).trim() : '';
+
+  return { name, seconds };
+}
+
 function loadPresets() {
   try {
     const raw = window.localStorage.getItem(PRESETS_KEY);
 
-    if (raw !== null) {
-      const parsed = JSON.parse(raw);
-
-      if (Array.isArray(parsed)) {
-        const valid = [
-          ...new Set(
-            parsed.filter(
-              (seconds) =>
-                Number.isInteger(seconds) &&
-                seconds > 0 &&
-                seconds <= MAX_PRESET_SECONDS
-            )
-          )
-        ].sort((a, b) => a - b);
-
-        if (valid.length > 0) {
-          return valid;
-        }
-      }
+    if (raw === null) {
+      return [];
     }
+
+    const parsed = JSON.parse(raw);
+
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    const seen = new Set();
+
+    return parsed.reduce((accumulator, entry) => {
+      const preset = normalizePreset(entry);
+
+      if (!preset) {
+        return accumulator;
+      }
+
+      const key = `${preset.seconds}|${presetLabel(preset)}`;
+
+      if (seen.has(key)) {
+        return accumulator;
+      }
+
+      seen.add(key);
+      accumulator.push(preset);
+      return accumulator;
+    }, []);
   } catch (error) {
-    // Ignore malformed storage and fall back to the built-in presets.
+    // Corrupted storage simply means "no presets".
   }
 
-  return [...DEFAULT_PRESETS];
+  return [];
 }
 
 function persistPresets() {
@@ -888,26 +970,55 @@ function buildPresetOptions() {
   const placeholder = document.createElement('option');
 
   placeholder.value = '';
-  placeholder.textContent = t('presets');
+  placeholder.textContent = presets.length > 0 ? t('presets') : t('presetNone');
   fragment.append(placeholder);
 
-  for (const seconds of presets) {
+  presets.forEach((preset, index) => {
     const option = document.createElement('option');
-    option.value = `preset:${seconds}`;
-    option.textContent = formatDuration(seconds * 1000);
+
+    option.value = `preset:${index}`;
+    option.textContent = presetLabel(preset);
     fragment.append(option);
-  }
+  });
 
   const saveOption = document.createElement('option');
+
   saveOption.value = 'action:save';
   saveOption.textContent = t('savePreset');
   fragment.append(saveOption);
 
   presetSelect.replaceChildren(fragment);
-  presetSelect.value = previous;
 
-  if (presetSelect.value !== previous) {
+  if (previous && presetSelect.querySelector(`option[value="${previous}"]`)) {
+    presetSelect.value = previous;
+  } else {
     presetSelect.value = '';
+  }
+
+  syncPresetButtons();
+}
+
+function currentPresetIndex() {
+  const value = presetSelect?.value || '';
+
+  if (!value.startsWith('preset:')) {
+    return -1;
+  }
+
+  const index = Number(value.slice('preset:'.length));
+
+  return Number.isInteger(index) && presets[index] ? index : -1;
+}
+
+function syncPresetButtons() {
+  const index = currentPresetIndex();
+
+  if (presetRenameButton) {
+    presetRenameButton.hidden = index < 0;
+  }
+
+  if (presetDeleteButton) {
+    presetDeleteButton.hidden = index < 0;
   }
 }
 
@@ -1862,54 +1973,141 @@ function applyPreset(seconds) {
   persistLastConfig(values);
 }
 
-function saveCurrentPreset() {
-  const result = readDuration();
+let presetSheetMode = 'create';
+let presetSheetIndex = -1;
+let presetSheetSeconds = 0;
 
-  if (result.errorKey) {
-    errorDescriptor = { key: result.errorKey };
-    setFormMessage(errorDescriptor);
-    result.input.focus({ preventScroll: true });
-    result.input.select();
+function openPresetSheet(mode, index = -1) {
+  if (!presetSheet || !presetNameInput) {
     return;
   }
 
-  const seconds = Math.round(result.durationMs / 1000);
+  presetSheetMode = mode;
+  presetSheetIndex = index;
 
-  presets = [...new Set([...presets, seconds])].sort((a, b) => a - b);
+  let suggested = '';
+
+  if (mode === 'rename' && presets[index]) {
+    suggested = presetLabel(presets[index]);
+  } else {
+    const result = readDuration();
+
+    if (result.errorKey) {
+      errorDescriptor = { key: result.errorKey };
+      setFormMessage(errorDescriptor);
+      result.input.focus({ preventScroll: true });
+      result.input.select();
+      return;
+    }
+
+    presetSheetSeconds = Math.round(result.durationMs / 1000);
+    suggested = formatDuration(presetSheetSeconds * 1000);
+  }
+
+  presetNameInput.value = suggested;
+  presetSheet.hidden = false;
+  presetNameInput.focus({ preventScroll: true });
+  presetNameInput.select();
+}
+
+function closePresetSheet() {
+  if (!presetSheet) {
+    return;
+  }
+
+  presetSheet.hidden = true;
+  presetSheetMode = 'create';
+  presetSheetIndex = -1;
+  setFormMessage(null);
+}
+
+function submitPresetSheet(event) {
+  event.preventDefault();
+
+  const name = (presetNameInput?.value || '').trim().slice(0, 24);
+
+  if (presetSheetMode === 'rename') {
+    const preset = presets[presetSheetIndex];
+
+    if (preset && name) {
+      preset.name = name;
+      persistPresets();
+      buildPresetOptions();
+      presetSelect.value = `preset:${presetSheetIndex}`;
+      syncPresetButtons();
+      setFormNotice('presetRenamed');
+    }
+
+    closePresetSheet();
+    return;
+  }
+
+  if (presetSheetSeconds <= 0) {
+    closePresetSheet();
+    return;
+  }
+
+  presets.push({ name, seconds: presetSheetSeconds });
   persistPresets();
-  persistLastConfig(result.values);
   buildPresetOptions();
-  presetSelect.value = `preset:${seconds}`;
+  presetSelect.value = `preset:${presets.length - 1}`;
+  syncPresetButtons();
   setFormNotice('presetSaved');
+  closePresetSheet();
+}
+
+function saveCurrentPreset() {
+  openPresetSheet('create');
+}
+
+function renameSelectedPreset() {
+  const index = currentPresetIndex();
+
+  if (index >= 0) {
+    openPresetSheet('rename', index);
+  }
+}
+
+function deleteSelectedPreset() {
+  const index = currentPresetIndex();
+
+  if (index < 0) {
+    return;
+  }
+
+  presets.splice(index, 1);
+  persistPresets();
+  buildPresetOptions();
+  presetSelect.value = '';
+  syncPresetButtons();
+  setFormNotice('presetDeleted');
 }
 
 function handlePresetChange() {
   const value = presetSelect.value;
 
   if (!value) {
+    syncPresetButtons();
     return;
   }
 
   if (value === 'action:save') {
     presetSelect.value = '';
+    syncPresetButtons();
     saveCurrentPreset();
     return;
   }
 
-  if (value.startsWith('preset:')) {
-    const seconds = Number(value.slice('preset:'.length));
+  const index = currentPresetIndex();
 
-    if (
-      Number.isInteger(seconds) &&
-      seconds > 0 &&
-      seconds <= MAX_PRESET_SECONDS
-    ) {
-      applyPreset(seconds);
-      return;
-    }
+  if (index >= 0) {
+    applyPreset(presets[index].seconds);
+    syncPresetButtons();
+    return;
   }
 
   presetSelect.value = '';
+  syncPresetButtons();
 }
 
 function tick() {
@@ -2397,6 +2595,30 @@ if (presetSelect) {
   presetSelect.addEventListener('change', handlePresetChange);
 }
 
+if (presetRenameButton) {
+  presetRenameButton.addEventListener('click', renameSelectedPreset);
+}
+
+if (presetDeleteButton) {
+  presetDeleteButton.addEventListener('click', deleteSelectedPreset);
+}
+
+if (presetForm) {
+  presetForm.addEventListener('submit', submitPresetSheet);
+}
+
+for (const button of [presetSheetClose, presetCancelButton]) {
+  button?.addEventListener('click', closePresetSheet);
+}
+
+if (presetSheet) {
+  presetSheet.addEventListener('pointerdown', (event) => {
+    if (event.target === presetSheet) {
+      closePresetSheet();
+    }
+  });
+}
+
 if (runModeSelect) {
   runModeSelect.addEventListener('change', () => {
     setRunMode(runModeSelect.value);
@@ -2769,6 +2991,17 @@ if (typeof bridge?.onUpdateProgress === 'function') {
 }
 
 window.addEventListener('keydown', (event) => {
+  if (presetSheet && !presetSheet.hidden) {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      closePresetSheet();
+    }
+
+    return;
+  }
+
+
   if (isHelpOpen()) {
     if (event.key === 'Escape' || event.key === 'Esc') {
       event.preventDefault();

@@ -19,6 +19,12 @@ const {
 const { snapPosition } = require('./window-snap');
 
 const APP_ID = 'com.alan.nanotimer';
+const TIMING_T0 = Date.now();
+const timingMark = (label) => {
+  if (process.env.NANOTIMER_TIMING) {
+    console.log(`[timing] ${label} +${Date.now() - TIMING_T0}ms`);
+  }
+};
 const WINDOW_WIDTH = 468;
 const WINDOW_HEIGHT = 378;
 const EDGE_SNAP_DELAY_MS = 120;
@@ -643,13 +649,26 @@ function createMainWindow() {
     }
 
     revealed = true;
+    timingMark('window show');
     win.show();
     win.focus();
+    // The tray costs ~45ms and nothing on screen depends on it, so build it
+    // after the window is visible instead of delaying the first paint.
+    setImmediate(() => {
+      try {
+        createTray();
+      } catch (error) {
+        console.warn('nanotimer: tray unavailable:', error.message);
+      }
+    });
   };
 
-  win.once('ready-to-show', reveal);
+  win.once('ready-to-show', () => {
+    timingMark('ready-to-show');
+    reveal();
+  });
   win.webContents.once('did-finish-load', () => {
-    setTimeout(reveal, 80);
+    setTimeout(reveal, 0);
   });
   setTimeout(reveal, 1500);
 
@@ -1294,6 +1313,7 @@ if (!hasSingleInstanceLock) {
   app
     .whenReady()
     .then(() => {
+      timingMark('app ready');
       if (process.platform === 'win32') {
         app.setAppUserModelId(APP_ID);
       }
@@ -1306,7 +1326,6 @@ if (!hasSingleInstanceLock) {
 
       registerWindowIpc();
       mainWindow = createMainWindow();
-      createTray();
       registerGlobalShortcuts();
 
       app.on('activate', () => {

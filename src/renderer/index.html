@@ -104,6 +104,30 @@
             aria-label="Presets"
             data-i18n-aria-label="presets"
           ></select>
+          <button
+            class="chip-button chip-button--icon"
+            id="preset-rename"
+            type="button"
+            title="Rename preset"
+            data-i18n-title="presetRename"
+            aria-label="Rename preset"
+            data-i18n-aria-label="presetRename"
+            hidden
+          >
+            &#9998;
+          </button>
+          <button
+            class="chip-button chip-button--icon chip-button--danger"
+            id="preset-delete"
+            type="button"
+            title="Delete preset"
+            data-i18n-title="presetDelete"
+            aria-label="Delete preset"
+            data-i18n-aria-label="presetDelete"
+            hidden
+          >
+            &#10005;
+          </button>
           <select
             class="language-select"
             data-language-select
@@ -385,6 +409,49 @@
           <li data-i18n="help5"></li>
           <li data-i18n="help6"></li>
         </ol>
+      </div>
+
+      <div
+        class="help-sheet name-sheet"
+        id="preset-sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="preset-sheet-title"
+        hidden
+      >
+        <div class="help-head">
+          <h2 class="help-title" id="preset-sheet-title" data-i18n="presetNameTitle">
+            Preset name
+          </h2>
+          <button
+            class="window-btn help-close"
+            id="preset-sheet-close"
+            type="button"
+            aria-label="Close"
+            data-i18n-aria-label="close"
+          >
+            &times;
+          </button>
+        </div>
+        <form class="name-form" id="preset-form">
+          <input
+            class="name-input"
+            id="preset-name"
+            type="text"
+            maxlength="24"
+            autocomplete="off"
+            spellcheck="false"
+            aria-labelledby="preset-sheet-title"
+          />
+          <div class="name-actions">
+            <button class="ghost-button" id="preset-cancel" type="button" data-i18n="presetCancel">
+              Cancel
+            </button>
+            <button class="primary-button" id="preset-confirm" type="submit" data-i18n="presetSave">
+              Save
+            </button>
+          </div>
+        </form>
       </div>
 
       <footer class="statusbar">

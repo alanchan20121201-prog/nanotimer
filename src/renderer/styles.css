@@ -278,12 +278,13 @@ body:has(.widget[data-mode="mini"]) {
 
 .view--setup {
   position: relative;
-  justify-content: flex-start;
+  justify-content: center;
+  gap: 14px;
 }
 
 .view-title {
   min-height: 18px;
-  margin: 0 0 4px;
+  margin: 0;
   /* The window buttons moved into the header, so the title no longer needs to
      reserve a strip on the right — it was clipping English ("SET A FOCUS CAPS…"). */
   padding-right: 0;
@@ -375,13 +376,11 @@ body:has(.widget[data-mode="mini"]) {
 .timer-form {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  /* Must not grow: if the form stretches to fill the view it cannot be
-     centred, and the slack piles up above the status bar. */
+  gap: 14px;
+  /* The whole setup block (title, controls, form) is centred by the view, so
+     the form itself must not add its own auto margins. */
   flex: 0 0 auto;
-  /* Auto margins centre the form in whichever mode is showing, so the slack
-     splits evenly instead of piling up above the status bar. */
-  margin-block: auto;
+  margin: 0;
 }
 
 .time-fields {
@@ -460,6 +459,7 @@ body:has(.widget[data-mode="mini"]) {
 }
 
 .run-mode-row {
+  margin: 0;
   display: flex;
   gap: 12px;
   align-items: center;
@@ -501,7 +501,7 @@ body:has(.widget[data-mode="mini"]) {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  margin-top: 4px;
+  margin: 0;
 }
 
 .note-preview {
@@ -583,6 +583,7 @@ body:has(.widget[data-mode="mini"]) {
 }
 
 .form-actions {
+  margin-top: 2px;
   display: flex;
   gap: 14px;
   align-items: center;
@@ -2119,4 +2120,23 @@ body:has(.widget[data-mode="fullscreen"]) {
 
 .note-field textarea {
   padding-right: 36px;
+}
+
+/* Long status text (e.g. "already on the latest version") must not run into
+   the footer chips. */
+.statusbar {
+  gap: 8px;
+}
+
+.statusbar .status {
+  min-width: 0;
+  overflow: hidden;
+  flex: 1 1 auto;
+}
+
+.statusbar #footer-status {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

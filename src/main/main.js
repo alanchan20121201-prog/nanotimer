@@ -27,7 +27,7 @@ const timingMark = (label) => {
   }
 };
 const WINDOW_WIDTH = 468;
-const WINDOW_HEIGHT = 424;
+const WINDOW_HEIGHT = 476;
 const EDGE_SNAP_DELAY_MS = 120;
 const WINDOW_SIZES = Object.freeze({
   setup: { width: WINDOW_WIDTH, height: WINDOW_HEIGHT },

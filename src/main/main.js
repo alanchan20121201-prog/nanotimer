@@ -1006,7 +1006,9 @@ function registerWindowIpc() {
           path: target,
           name: fileName,
           differential: true,
-          bytes: differential.bytes
+          bytes: differential.bytes,
+          downloaded: differential.downloaded,
+          savedPercent: Math.round((differential.savedRatio || 0) * 100)
         };
       }
 

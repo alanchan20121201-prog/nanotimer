@@ -2151,3 +2151,18 @@ body:has(.widget[data-mode="fullscreen"]) {
 .window-btn.chip-reset[hidden] {
   display: none;
 }
+
+/* [hidden] must win over the row's flex display. */
+.extend-row[hidden] {
+  display: none;
+}
+
+.extend-chip.subtract {
+  color: var(--muted);
+}
+
+.extend-chip.subtract:hover {
+  border-color: rgba(255, 255, 255, 0.32);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--ink);
+}

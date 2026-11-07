@@ -40,6 +40,8 @@ const noteClearButton = document.getElementById('note-clear');
 const timerNote = document.getElementById('timer-note');
 const exportButton = document.getElementById('export-button');
 const extendRow = document.getElementById('extend-row');
+const reduceOneButton = document.getElementById('reduce-one');
+const reduceFiveButton = document.getElementById('reduce-five');
 const extendOneButton = document.getElementById('extend-one');
 const extendFiveButton = document.getElementById('extend-five');
 const undoButton = document.getElementById('undo-button');
@@ -245,6 +247,10 @@ const UI_TEXT = {
     editDuration: 'Edit duration',
     minutesShort: 'min',
     secondsShort: 'sec',
+    removeTime: 'Take time off',
+    removeTime: '減少時間',
+    removeTime: '减少时间',
+    removeTime: '時間を減らす',
     addTime: 'Add time',
     endsAt: 'ends',
     elapsed: 'elapsed',
@@ -2862,26 +2868,34 @@ function syncExtendRow() {
   extendRow.hidden = !(active && runMode !== 'stopwatch');
 }
 
-function extendActive(minutes) {
+function adjustActive(minutes) {
   if (mode !== 'running' && mode !== 'paused') {
     return;
   }
 
+  // A stopwatch counts up, so adding or removing time is meaningless there.
   if (runMode === 'stopwatch') {
     return;
   }
 
-  const delta = minutes * 60 * 1000;
-  totalMs += delta;
-  remainingMs += delta;
+  const delta = Math.round(minutes * 60 * 1000);
+  const current = mode === 'running' ? endAt - Date.now() : remainingMs;
+  const next = Math.max(0, current + delta);
+
+  remainingMs = next;
+  totalMs = delta > 0 ? totalMs + delta : Math.max(next, totalMs);
 
   if (mode === 'running') {
-    endAt += delta;
+    endAt = Date.now() + next;
   }
 
-  renderRemaining(remainingMs);
+  renderRemaining(next);
   renderModeLabels();
-  announce(t('addTime'));
+  announce(t(delta > 0 ? 'addTime' : 'removeTime'));
+}
+
+function extendActive(minutes) {
+  adjustActive(minutes);
 }
 
 let undoSnapshot = null;
@@ -3051,6 +3065,14 @@ if (runModeSelect) {
 
 if (exportButton) {
   exportButton.addEventListener('click', exportLog);
+}
+
+if (reduceOneButton) {
+  reduceOneButton.addEventListener('click', () => adjustActive(-1));
+}
+
+if (reduceFiveButton) {
+  reduceFiveButton.addEventListener('click', () => adjustActive(-5));
 }
 
 if (extendOneButton) {

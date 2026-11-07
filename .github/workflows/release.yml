@@ -23,6 +23,20 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Tag matches package.json
+        # A tag that disagrees with the manifest would publish assets named for
+        # one version under the other, and the in-app updater would look for a
+        # file that does not exist.
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          package="$(node -p "require('./package.json').version")"
+          if [ "$tag" != "$package" ]; then
+            echo "::error::tag v$tag does not match package.json $package"
+            exit 1
+          fi
+
       - name: Checks
         run: |
           npm run check
@@ -33,6 +47,15 @@ jobs:
         # release itself (it would need GH_TOKEN); the step below uploads.
         run: npm run dist -- --publish never
 
+      - name: Checksums
+        # The release notes quote these hashes, and the README asks people to
+        # verify them, so generate them next to the binaries instead of by hand.
+        shell: bash
+        run: |
+          cd dist
+          sha256sum nanotimer-*-setup.exe nanotimer-*-portable.exe > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -41,6 +64,7 @@ jobs:
             dist/nanotimer-*-setup.exe
             dist/nanotimer-*-setup.exe.blockmap
             dist/nanotimer-*-portable.exe
+            dist/SHA256SUMS.txt
 
       - name: Attach to release
         if: startsWith(github.ref, 'refs/tags/v')
@@ -50,4 +74,5 @@ jobs:
             dist/nanotimer-*-setup.exe
             dist/nanotimer-*-setup.exe.blockmap
             dist/nanotimer-*-portable.exe
+            dist/SHA256SUMS.txt
           generate_release_notes: true

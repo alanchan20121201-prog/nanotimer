@@ -41,7 +41,7 @@ A frameless, transparent countdown / stopwatch that floats on your desktop. Buil
 
 | Mode | Looks like | Reached by |
 | --- | --- | --- |
-| Setup | 420×330 card with the form | default, or *New timer* |
+| Setup | 420×428 card with the form | default, or *New timer* |
 | Capsule | small pill that expands on hover into the control panel | *Start* |
 | Mini | 96 px progress circle, click to return to capsule | mode select, or `M` |
 | Fullscreen | edge-to-edge focus stage | mode select, or `F` |

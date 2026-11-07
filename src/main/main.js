@@ -889,7 +889,7 @@ function registerWindowIpc() {
     }
 
     const result = await dialog.showSaveDialog(win, {
-      title: 'Export nanotimer settings',
+      title: dialogTitle('exportSettings'),
       defaultPath: 'nanotimer-settings.json',
       filters: [{ name: 'JSON', extensions: ['json'] }]
     });
@@ -914,7 +914,7 @@ function registerWindowIpc() {
     }
 
     const result = await dialog.showOpenDialog(win, {
-      title: 'Import nanotimer settings',
+      title: dialogTitle('importSettings'),
       properties: ['openFile'],
       filters: [{ name: 'JSON', extensions: ['json'] }]
     });
@@ -957,7 +957,7 @@ function registerWindowIpc() {
 
     try {
       const result = await dialog.showOpenDialog(win, {
-        title: 'Choose a completion sound',
+        title: dialogTitle('pickAudio'),
         properties: ['openFile'],
         filters: [
           {
@@ -1013,7 +1013,7 @@ function registerWindowIpc() {
 
     try {
       const result = await dialog.showOpenDialog(win, {
-        title: 'Choose a background image',
+        title: dialogTitle('pickBackground'),
         properties: ['openFile'],
         filters: [
           {
@@ -1061,7 +1061,7 @@ function registerWindowIpc() {
 
     try {
       const result = await dialog.showSaveDialog(win, {
-        title: 'Export nanotimer log',
+        title: dialogTitle('exportLog'),
         defaultPath:
           typeof suggestedName === 'string' ? suggestedName : 'nanotimer-log.txt',
         filters: [{ name: 'Text', extensions: ['txt'] }]
@@ -1088,6 +1088,51 @@ function registerWindowIpc() {
       return { status: 'error', message: error.message };
     }
   });
+
+  async function ensureUpdateDigest(downloadUrl) {
+    // The atom fallback carries no asset digest, so a rate-limited API would
+    // otherwise mean "download it unverified". Ask the API once, by tag.
+    if (expectedUpdateDigest) {
+      return;
+    }
+
+    try {
+      const parsed = new URL(String(downloadUrl));
+      const parts = parsed.pathname.split('/').filter(Boolean);
+      const tagIndex = parts.indexOf('download');
+      const tag = tagIndex >= 0 ? parts[tagIndex + 1] : '';
+      const assetName = decodeURIComponent(parts[parts.length - 1] || '');
+
+      if (!tag || !assetName) {
+        return;
+      }
+
+      const slug = resolveRepositorySlug();
+      const response = await net.fetch(
+        `https://api.github.com/repos/${slug.owner}/${slug.repo}/releases/tags/${encodeURIComponent(tag)}`,
+        {
+          headers: {
+            Accept: 'application/vnd.github+json',
+            'User-Agent': `nanotimer/${app.getVersion()}`
+          }
+        }
+      );
+
+      if (!response.ok) {
+        console.warn('nanotimer: no digest available for', tag, response.status);
+        return;
+      }
+
+      const data = await response.json();
+      const asset = (data.assets || []).find((item) => item.name === assetName);
+
+      if (asset && asset.digest) {
+        expectedUpdateDigest = String(asset.digest).replace(/^sha256:/i, '');
+      }
+    } catch (error) {
+      console.warn('nanotimer: could not look up the update digest.', error.message);
+    }
+  }
 
   async function verifyInstaller(filePath) {
     if (!expectedUpdateDigest) {
@@ -1137,6 +1182,8 @@ function registerWindowIpc() {
       const target = path.join(directory, fileName);
       const userAgent = `nanotimer/${app.getVersion()}`;
       let lastReport = 0;
+
+      await ensureUpdateDigest(parsed.toString());
 
       // Reuse the previous installer so only changed blocks travel over the
       // network. Falls back to the plain download below on any problem.
@@ -1472,6 +1519,37 @@ function isTrustedUpdateUrl(value) {
   }
 }
 
+const DIALOG_TITLES = {
+  en: {
+    exportSettings: 'Export nanotimer settings',
+    importSettings: 'Import nanotimer settings',
+    pickAudio: 'Choose a completion sound',
+    pickBackground: 'Choose a background image',
+    exportLog: 'Export nanotimer log'
+  },
+  'zh-TW': {
+    exportSettings: '匯出 nanotimer 設定',
+    importSettings: '匯入 nanotimer 設定',
+    pickAudio: '選擇完成音效',
+    pickBackground: '選擇背景圖片',
+    exportLog: '匯出 nanotimer 紀錄'
+  },
+  'zh-CN': {
+    exportSettings: '导出 nanotimer 设置',
+    importSettings: '导入 nanotimer 设置',
+    pickAudio: '选择完成音效',
+    pickBackground: '选择背景图片',
+    exportLog: '导出 nanotimer 记录'
+  },
+  ja: {
+    exportSettings: 'nanotimer 設定を書き出す',
+    importSettings: 'nanotimer 設定を読み込む',
+    pickAudio: '完了音を選ぶ',
+    pickBackground: '背景画像を選ぶ',
+    exportLog: 'nanotimer ログを書き出す'
+  }
+};
+
 const TRAY_LABELS = Object.freeze({
   en: {
     show: 'Show window',
@@ -1506,6 +1584,12 @@ const GLOBAL_SHORTCUTS = Object.freeze([
 
 let tray = null;
 let trayLanguage = 'en';
+
+function dialogTitle(key) {
+  const table = DIALOG_TITLES[trayLanguage] || DIALOG_TITLES.en;
+  return table[key] || DIALOG_TITLES.en[key];
+}
+
 
 function trayLabel(key) {
   const table = TRAY_LABELS[trayLanguage] || TRAY_LABELS.en;

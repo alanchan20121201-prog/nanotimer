@@ -39,6 +39,7 @@ jobs:
           name: nanotimer-windows
           path: |
             dist/nanotimer-*-setup.exe
+            dist/nanotimer-*-setup.exe.blockmap
             dist/nanotimer-*-portable.exe
 
       - name: Attach to release
@@ -47,5 +48,6 @@ jobs:
         with:
           files: |
             dist/nanotimer-*-setup.exe
+            dist/nanotimer-*-setup.exe.blockmap
             dist/nanotimer-*-portable.exe
           generate_release_notes: true

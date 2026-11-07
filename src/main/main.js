@@ -17,6 +17,7 @@ const {
   globalShortcut
 } = require('electron');
 const { snapPosition } = require('./window-snap');
+const { tryDifferential } = require('./differential');
 
 const APP_ID = 'com.alan.nanotimer';
 const TIMING_T0 = Date.now();
@@ -971,6 +972,44 @@ function registerWindowIpc() {
       await fs.promises.mkdir(directory, { recursive: true });
 
       const target = path.join(directory, fileName);
+      const userAgent = `nanotimer/${app.getVersion()}`;
+      let lastReport = 0;
+
+      // Reuse the previous installer so only changed blocks travel over the
+      // network. Falls back to the plain download below on any problem.
+      const differential = await tryDifferential({
+        url: parsed.toString(),
+        target: fileName,
+        directory,
+        userAgent,
+        onProgress: (progress) => {
+          if (Date.now() - lastReport > 200) {
+            lastReport = Date.now();
+            event.sender.send('update:progress', {
+              received: progress.downloaded,
+              total: progress.total,
+              differential: true
+            });
+          }
+        }
+      });
+
+      if (differential) {
+        event.sender.send('update:progress', {
+          received: differential.bytes,
+          total: differential.bytes,
+          differential: true
+        });
+
+        return {
+          ok: true,
+          path: target,
+          name: fileName,
+          differential: true,
+          bytes: differential.bytes
+        };
+      }
+
       const response = await net.fetch(parsed.toString());
 
       if (!response.ok || !response.body) {
@@ -979,7 +1018,7 @@ function registerWindowIpc() {
 
       const total = Number(response.headers.get('content-length') || 0);
       let received = 0;
-      let lastReport = 0;
+      lastReport = 0;
       const handle = await fs.promises.open(target, 'w');
 
       try {
@@ -1203,8 +1242,13 @@ async function fetchLatestRelease() {
     return fallback || { status: 'error' };
   }
   const assets = Array.isArray(release.assets) ? release.assets : [];
+  const tagVersion = String(release.tag_name || '').replace(/^v/i, '');
+  const installers = assets.filter((entry) => /-setup\.exe$/i.test(entry.name));
+  // Prefer the asset that carries this release's version, so a stale upload
+  // left on an older release can never win.
   const asset =
-    assets.find((entry) => /-setup\.exe$/i.test(entry.name)) ||
+    installers.find((entry) => entry.name.includes(`-${tagVersion}-`)) ||
+    installers[0] ||
     assets.find((entry) => /\.exe$/i.test(entry.name)) ||
     null;
 

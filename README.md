@@ -57,8 +57,8 @@ Download one of the two Windows x64 builds from the releases page:
 
 | File | What it is |
 | --- | --- |
-| `nanotimer-1.0.5-setup.exe` | Installer — Start-menu shortcut, optional install directory, uninstall keeps your data |
-| `nanotimer-1.0.5-portable.exe` | Single file — run it from a USB stick, nothing is installed |
+| `nanotimer-1.0.7-setup.exe` | Installer — Start-menu shortcut, optional install directory, uninstall keeps your data |
+| `nanotimer-1.0.7-portable.exe` | Single file — run it from a USB stick, nothing is installed |
 
 Both builds share one profile, so switching between them never loses your background image, presets or history. The binaries are unsigned, so SmartScreen shows *Windows protected your PC* on first run: choose **More info → Run anyway**.
 
@@ -85,7 +85,7 @@ npm test           # unit tests
 npm run dist       # both Windows builds into dist/
 ```
 
-`npm run dist` produces `dist/nanotimer-1.0.5-setup.exe` and `dist/nanotimer-1.0.5-portable.exe`. The icon is `build/icon.ico` (16–256 px). Requirements: Node.js 20 or newer.
+`npm run dist` produces `dist/nanotimer-1.0.7-setup.exe` and `dist/nanotimer-1.0.7-portable.exe`. The icon is `build/icon.ico` (16–256 px). Requirements: Node.js 20 or newer.
 
 ### Project structure
 
@@ -158,8 +158,8 @@ test/                # node --test
 
 | 檔案 | 說明 |
 | --- | --- |
-| `nanotimer-1.0.5-setup.exe` | 安裝版：開始選單捷徑、可選安裝位置、移除時保留設定 |
-| `nanotimer-1.0.5-portable.exe` | 免安裝單一檔案：可放在 USB，不寫入系統 |
+| `nanotimer-1.0.7-setup.exe` | 安裝版：開始選單捷徑、可選安裝位置、移除時保留設定 |
+| `nanotimer-1.0.7-portable.exe` | 免安裝單一檔案：可放在 USB，不寫入系統 |
 
 兩種版本共用同一份設定，互換使用不會遺失背景圖片、預設組合或紀錄。執行檔未簽章，第一次啟動會出現 SmartScreen，請選「其他資訊 → 仍要執行」。
 
@@ -186,7 +186,7 @@ npm test           # 單元測試
 npm run dist       # 產生安裝版與免安裝版
 ```
 
-產出為 `dist/nanotimer-1.0.5-setup.exe` 與 `dist/nanotimer-1.0.5-portable.exe`，圖示為 `build/icon.ico`。需要 Node.js 20 以上。
+產出為 `dist/nanotimer-1.0.7-setup.exe` 與 `dist/nanotimer-1.0.7-portable.exe`，圖示為 `build/icon.ico`。需要 Node.js 20 以上。
 
 ### 授權
 
@@ -230,8 +230,8 @@ npm run dist       # 產生安裝版與免安裝版
 
 | 文件 | 说明 |
 | --- | --- |
-| `nanotimer-1.0.5-setup.exe` | 安装版：开始菜单快捷方式、可选安装位置、卸载时保留设置 |
-| `nanotimer-1.0.5-portable.exe` | 免安装单文件：可放在 U 盘，不写入系统 |
+| `nanotimer-1.0.7-setup.exe` | 安装版：开始菜单快捷方式、可选安装位置、卸载时保留设置 |
+| `nanotimer-1.0.7-portable.exe` | 免安装单文件：可放在 U 盘，不写入系统 |
 
 两种版本共用同一份设置，互换使用不会丢失背景图片、预设组合或记录。可执行文件未签名，第一次启动会出现 SmartScreen，请选「更多信息 → 仍要运行」。
 
@@ -291,8 +291,8 @@ Releases から Windows x64 版をダウンロードします。
 
 | ファイル | 内容 |
 | --- | --- |
-| `nanotimer-1.0.5-setup.exe` | インストーラー：スタートメニュー登録、インストール先の選択、アンインストール時もデータ保持 |
-| `nanotimer-1.0.5-portable.exe` | 単一ファイル版：USB からも実行でき、システムに書き込みません |
+| `nanotimer-1.0.7-setup.exe` | インストーラー：スタートメニュー登録、インストール先の選択、アンインストール時もデータ保持 |
+| `nanotimer-1.0.7-portable.exe` | 単一ファイル版：USB からも実行でき、システムに書き込みません |
 
 どちらも同じプロファイルを使うため、切り替えても背景画像・プリセット・履歴は失われません。署名なしのため、初回起動時に SmartScreen が表示されます（**詳細情報 → 実行**）。
 

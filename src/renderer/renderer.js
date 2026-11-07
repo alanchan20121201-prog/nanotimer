@@ -183,6 +183,7 @@ const UI_TEXT = {
     updateLatest: 'You are on the latest version (v{v}).',
     updateFound: 'Version v{v} is available.',
     updateDownloading: 'Downloading update... {p}%',
+    updateDiffDownloading: 'Downloading changes... {p}%',
     updateReady: 'Update downloaded. Press the update button again to install.',
     updateFailed: 'Could not check for updates.',
     updateInstalling: 'Starting the installer...',
@@ -289,6 +290,7 @@ const UI_TEXT = {
     updateLatest: '已是最新版本（v{v}）。',
     updateFound: '有新版本 v{v}。',
     updateDownloading: '下載更新… {p}%',
+    updateDiffDownloading: '下載更新差異… {p}%',
     updateReady: '更新已下載，再按一次更新按鈕即可安裝。',
     updateFailed: '無法檢查更新。',
     updateInstalling: '正在啟動安裝程式…',
@@ -395,6 +397,7 @@ const UI_TEXT = {
     updateLatest: '已是最新版本（v{v}）。',
     updateFound: '有新版本 v{v}。',
     updateDownloading: '下载更新… {p}%',
+    updateDiffDownloading: '下载更新差异… {p}%',
     updateReady: '更新已下载，再按一次更新按钮即可安装。',
     updateFailed: '无法检查更新。',
     updateInstalling: '正在启动安装程序…',
@@ -501,6 +504,7 @@ const UI_TEXT = {
     updateLatest: '最新バージョンです（v{v}）。',
     updateFound: '新しいバージョン v{v} があります。',
     updateDownloading: 'ダウンロード中… {p}%',
+    updateDiffDownloading: '差分をダウンロード中… {p}%',
     updateReady: 'ダウンロード完了。もう一度更新ボタンを押すとインストールします。',
     updateFailed: '更新を確認できませんでした。',
     updateInstalling: 'インストーラーを起動しています…',
@@ -3002,7 +3006,12 @@ if (typeof bridge?.onUpdateProgress === 'function') {
       ? Math.min(100, Math.round((progress.received / progress.total) * 100))
       : 0;
 
-    showNotice(t('updateDownloading').replace('{p}', percent));
+    showNotice(
+      t(progress.differential ? 'updateDiffDownloading' : 'updateDownloading').replace(
+        '{p}',
+        percent
+      )
+    );
   });
 }
 

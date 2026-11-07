@@ -10,7 +10,7 @@
   "scripts": {
     "start": "node scripts/start.js",
     "dev": "node scripts/start.js",
-    "check": "node --check scripts/start.js && node --check src/main/main.js && node --check src/main/window-snap.js && node --check src/main/preload.js && node --check src/renderer/renderer.js",
+    "check": "node --check scripts/start.js && node --check src/main/main.js && node --check src/main/window-snap.js && node --check src/main/display-placement.js && node --check src/main/preload.js && node --check src/renderer/renderer.js",
     "test": "node --test test/*.test.js",
     "pack": "electron-builder --dir",
     "package:win": "npm run pack && powershell -NoProfile -ExecutionPolicy Bypass -File scripts/make-launcher.ps1",

@@ -17,6 +17,7 @@ const {
   globalShortcut
 } = require('electron');
 const { snapPosition } = require('./window-snap');
+const { resolveModePlacement } = require('./display-placement');
 const { tryDifferential } = require('./differential');
 
 const APP_ID = 'com.alan.nanotimer';
@@ -401,22 +402,6 @@ function leaveFullScreenAndWait(win) {
   });
 }
 
-function clampToWorkArea(win, x, y, width, height) {  const display = screen.getDisplayMatching(win.getBounds());
-
-  if (!display) {
-    return { x, y };
-  }
-
-  const { workArea } = display;
-  const maxX = Math.max(workArea.x, workArea.x + workArea.width - width);
-  const maxY = Math.max(workArea.y, workArea.y + workArea.height - height);
-
-  return {
-    x: Math.min(Math.max(x, workArea.x), maxX),
-    y: Math.min(Math.max(y, workArea.y), maxY)
-  };
-}
-
 /**
  * Resize the frameless window to the exact footprint of the selected display
  * mode. Fullscreen uses the display's full bounds (not just the work area) and
@@ -509,17 +494,18 @@ async function setWindowDisplayMode(win, nextMode, heightHint) {
   }
 
   // Keep the centre still: the widget collapses/expands in place instead of
-  // jumping to wherever its top-left corner would land.
-  const centerX = from.x + from.width / 2;
-  const centerY = from.y + from.height / 2;
-  const remembered = restoringFromFullscreen || bloomingFromMini ? null : modePositions[nextMode];
-  const position = clampToWorkArea(
-    win,
-    remembered ? remembered.x : Math.round(centerX - size.width / 2),
-    remembered ? remembered.y : Math.round(centerY - size.height / 2),
-    size.width,
-    size.height
-  );
+  // jumping to wherever its top-left corner would land. Which corner wins, and
+  // when the centre has to win, is decided in display-placement.js.
+  const display = screen.getDisplayMatching(win.getBounds());
+  const position =
+    resolveModePlacement({
+      from,
+      size,
+      workArea: display ? display.workArea : null,
+      remembered: modePositions[nextMode],
+      restoredFromFullscreen: restoringFromFullscreen,
+      bloomFromMini: bloomingFromMini
+    }) || { x: from.x, y: from.y };
 
   if (bloomingFromMini) {
     // The bloom is the capsule's new home: use it for setup -> capsule too,

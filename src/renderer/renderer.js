@@ -21,6 +21,7 @@ const pinButton = document.getElementById('pin-button');
 const muteButton = document.getElementById('mute-button');
 const resetHint = document.getElementById('reset-hint');
 const audioButton = document.getElementById('audio-button');
+const audioResetButton = document.getElementById('audio-reset');
 const backdrop = document.getElementById('backdrop');
 const backgroundButton = document.getElementById('background-button');
 const backgroundClearButton = document.getElementById('background-clear');
@@ -224,6 +225,18 @@ const UI_TEXT = {
     statsStreak: '{n}-day streak',
     extended: 'Added five minutes',
     noteLabel: 'Focus note',
+    updateChecksumFailed: 'The update file was damaged on the way down. Please try again.',
+    audioReset: 'Use the default sound',
+    audioResetDone: 'Back to the default sound',
+    updateChecksumFailed: '更新檔下載後校驗失敗，請再試一次。',
+    audioReset: '恢復預設音效',
+    audioResetDone: '已恢復預設音效',
+    updateChecksumFailed: '更新包下载后校验失败，请再试一次。',
+    audioReset: '恢复默认音效',
+    audioResetDone: '已恢复默认音效',
+    updateChecksumFailed: '更新ファイルの検証に失敗しました。もう一度お試しください。',
+    audioReset: '既定の音に戻す',
+    audioResetDone: '既定の音に戻しました',
     noteClear: 'Clear the note',
     soundPreviewShort: 'Preview',
     editDuration: 'Edit duration',
@@ -1644,7 +1657,10 @@ async function runUpdateFlow() {
 
   if (!download || !download.ok) {
     updateState = 'idle';
-    showNotice(t('updateFailed'), 'error');
+    showNotice(
+      t(download?.message === 'checksum' ? 'updateChecksumFailed' : 'updateFailed'),
+      'error'
+    );
     return;
   }
 
@@ -1904,6 +1920,7 @@ async function loadAudioPreference() {
       customAudioUrl = loaded.dataUrl;
       localStorage.setItem(AUDIO_KEY, loaded.token);
       alarmAudio = null;
+      syncAudioReset();
     } else {
       localStorage.removeItem(AUDIO_KEY);
       customAudioPath = '';
@@ -2042,6 +2059,8 @@ async function pickAudio() {
       customAudioUrl = picked.dataUrl;
       alarmAudio = null;
       localStorage.setItem(AUDIO_KEY, picked.token);
+
+      syncAudioReset();
 
       if (mode === 'setup') {
         setFormNotice('audioSet');
@@ -3086,6 +3105,36 @@ if (typeof bridge?.onExitFullscreen === 'function') {
 
 if (audioButton) {
   audioButton.addEventListener('click', pickAudio);
+}
+
+/**
+ * Show the "back to the built-in chime" chip only while a custom sound is set,
+ * and let it clear the stored choice.
+ */
+function syncAudioReset() {
+  if (!audioResetButton) {
+    return;
+  }
+
+  audioResetButton.hidden = !customAudioPath;
+}
+
+function resetAudioPreference() {
+  customAudioPath = '';
+  customAudioUrl = '';
+  alarmAudio = null;
+  localStorage.removeItem(AUDIO_KEY);
+  syncAudioReset();
+
+  if (mode === 'setup') {
+    setFormNotice('audioResetDone');
+  } else {
+    announce(t('audioResetDone'));
+  }
+}
+
+if (audioResetButton) {
+  audioResetButton.addEventListener('click', resetAudioPreference);
 }
 
 if (backgroundButton) {

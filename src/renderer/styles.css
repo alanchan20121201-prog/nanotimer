@@ -137,7 +137,7 @@ body:has(.widget[data-mode="mini"]) {
   pointer-events: auto;
 }
 
-.widget > :not(.drag-surface):not(.backdrop) {
+.widget > :not(.drag-surface):not(.backdrop):not(.help-sheet) {
   position: relative;
   z-index: 1;
 }
@@ -2139,4 +2139,15 @@ body:has(.widget[data-mode="fullscreen"]) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Restore the built-in chime: only visible while a custom sound is loaded. */
+.window-btn.chip-reset {
+  color: var(--accent);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.window-btn.chip-reset[hidden] {
+  display: none;
 }

@@ -160,6 +160,8 @@ let suppressEdgeSnapUntil = 0;
 // Window surface is temporarily transparent while a fullscreen restore is
 // resizing the window (see setWindowDisplayMode).
 let hiddenForResize = false;
+// sha256 of the latest release asset, used to reject a corrupted download.
+let expectedUpdateDigest = '';
 
 let displayState = {
   mode: 'setup',
@@ -1071,11 +1073,28 @@ function registerWindowIpc() {
 
   ipcMain.handle('update:check', async () => {
     try {
-      return await fetchLatestRelease();
+      const result = await fetchLatestRelease();
+      expectedUpdateDigest = String(result?.digest || '').replace(/^sha256:/i, '');
+      return result;
     } catch (error) {
       return { status: 'error', message: error.message };
     }
   });
+
+  async function verifyInstaller(filePath) {
+    if (!expectedUpdateDigest) {
+      return true;
+    }
+
+    try {
+      const buffer = await fs.promises.readFile(filePath);
+      const actual = crypto.createHash('sha256').update(buffer).digest('hex');
+      return actual === expectedUpdateDigest;
+    } catch (error) {
+      console.warn('nanotimer: update verification failed.', error.message);
+      return false;
+    }
+  }
 
   ipcMain.handle('update:download', async (event, url, suggestedName) => {
     if (!isTrustedUpdateUrl(url)) {
@@ -1124,6 +1143,11 @@ function registerWindowIpc() {
           differential: true
         });
 
+        if (!(await verifyInstaller(target))) {
+          await fs.promises.rm(target, { force: true });
+          return { ok: false, message: 'checksum' };
+        }
+
         return {
           ok: true,
           path: target,
@@ -1164,6 +1188,11 @@ function registerWindowIpc() {
         received,
         total: total || received
       });
+
+      if (!(await verifyInstaller(target))) {
+        await fs.promises.rm(target, { force: true });
+        return { ok: false, message: 'checksum' };
+      }
 
       return { ok: true, path: target, name: fileName };
     } catch (error) {
@@ -1384,6 +1413,8 @@ async function fetchLatestRelease() {
     newer: compareVersions(release.tag_name, app.getVersion()) > 0,
     name: asset ? asset.name : '',
     url: asset ? asset.browser_download_url : release.html_url || '',
+    // GitHub publishes a sha256 digest per asset; the atom fallback has none.
+    digest: asset && asset.digest ? String(asset.digest) : '',
     notes: String(release.body || '').slice(0, 400)
   };
 }

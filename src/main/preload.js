@@ -23,8 +23,8 @@ contextBridge.exposeInMainWorld(
     getAlwaysOnTop: () => ipcRenderer.invoke('window:get-always-on-top'),
     setAlwaysOnTop: (pinned) =>
       ipcRenderer.invoke('window:set-always-on-top', Boolean(pinned)),
-    setDisplayMode: (mode) =>
-      ipcRenderer.invoke('window:set-display-mode', String(mode)),
+    setDisplayMode: (mode, options) =>
+      ipcRenderer.invoke('window:set-display-mode', String(mode), options || {}),
     // Tells the main process that the user is holding the panel, so the edge
     // snap does not fight the drag by firing while the pointer is still down.
     setDragging: (dragging) =>

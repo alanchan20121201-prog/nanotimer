@@ -422,7 +422,7 @@ function clampToWorkArea(win, x, y, width, height) {  const display = screen.get
  * mode. Fullscreen uses the display's full bounds (not just the work area) and
  * restores the previous position and pin state when the user leaves it.
  */
-async function setWindowDisplayMode(win, nextMode) {
+async function setWindowDisplayMode(win, nextMode, heightHint) {
   if (!win || win.isDestroyed() || !DISPLAY_MODES.has(nextMode)) {
     return false;
   }
@@ -449,7 +449,15 @@ async function setWindowDisplayMode(win, nextMode) {
     return true;
   }
 
-  const size = WINDOW_SIZES[nextMode] || WINDOW_SIZES.capsule;
+  const size = { ...(WINDOW_SIZES[nextMode] || WINDOW_SIZES.capsule) };
+
+  // The setup card has one job per run mode; stopwatch hides the duration
+  // fields, so it asks for a shorter window instead of centring a small block
+  // in a tall card.
+  if (nextMode === 'setup' && Number.isFinite(heightHint)) {
+    size.height = Math.min(560, Math.max(340, Math.round(heightHint)));
+  }
+
   const restoringFromFullscreen = displayState.mode === 'fullscreen';
 
   // Remember where the mode we are leaving was, so switching back restores it.
@@ -928,7 +936,7 @@ function registerWindowIpc() {
     }
   });
 
-  ipcMain.handle('window:set-display-mode', async (event, mode) => {
+  ipcMain.handle('window:set-display-mode', async (event, mode, options) => {
     const win = BrowserWindow.fromWebContents(event.sender);
 
     if (!win) {
@@ -937,7 +945,7 @@ function registerWindowIpc() {
 
     // Resolves only after the resize animation finished, so the renderer can
     // hold the new scene back until the window is the right size.
-    return setWindowDisplayMode(win, mode);
+    return setWindowDisplayMode(win, mode, options && options.height);
   });
 
   ipcMain.handle('audio:pick', async (event) => {

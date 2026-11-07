@@ -82,6 +82,9 @@ const languageSelects = Array.from(
 );
 
 const TICK_MS = 1000;
+// Setup card heights: the full form, or the shorter stopwatch form.
+const SETUP_HEIGHT_FULL = 476;
+const SETUP_HEIGHT_STOPWATCH = 398;
 const STORAGE_KEY = 'nanotimer.language';
 const PRESETS_KEY = 'nanotimer.presets';
 const LAST_CONFIG_KEY = 'nanotimer.lastConfig';
@@ -1170,6 +1173,9 @@ function setRunMode(nextMode) {
   } catch (error) {
     // Storage is optional.
   }
+
+  // Stopwatch hides the duration fields, so the card has to shrink with it.
+  syncSetupHeight();
 }
 
 function buildLanguageOptions() {
@@ -1406,6 +1412,22 @@ function syncDisplayModeControls(nextMode) {
   }
 }
 
+function setupHeight() {
+  return runMode === 'stopwatch' ? SETUP_HEIGHT_STOPWATCH : SETUP_HEIGHT_FULL;
+}
+
+/**
+ * The setup card is shorter for stopwatch (no duration fields). Called when the
+ * run mode changes while the setup view is on screen.
+ */
+function syncSetupHeight() {
+  if (displayMode !== 'setup') {
+    return;
+  }
+
+  bridge.setDisplayMode('setup', { height: setupHeight() }).catch(() => {});
+}
+
 async function applyDisplayMode(nextMode) {
   if (!DISPLAY_MODES.has(nextMode)) {
     return;
@@ -1452,7 +1474,10 @@ async function applyDisplayMode(nextMode) {
   if (typeof bridge?.setDisplayMode === 'function') {
     try {
       await Promise.race([
-        bridge.setDisplayMode(nextMode),
+        bridge.setDisplayMode(
+          nextMode,
+          nextMode === 'setup' ? { height: setupHeight() } : undefined
+        ),
         wait(MODE_SETTLE_TIMEOUT_MS)
       ]);
       // The main process keeps its own idea of the window footprint; after a

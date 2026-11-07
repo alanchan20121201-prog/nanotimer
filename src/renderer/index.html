@@ -231,6 +231,16 @@
           <div class="note-field no-drag">
             <div class="note-head">
               <span class="field-label" id="note-label" data-i18n="noteLabel">Focus note</span>
+            </div>
+            <textarea
+              class="note-input"
+              id="session-note"
+              rows="2"
+              maxlength="500"
+              placeholder="What are you focusing on?"
+              data-i18n-placeholder="notePlaceholder"
+              aria-labelledby="note-label"
+            ></textarea>
               <button
                 class="chip-button chip-button--icon"
                 id="note-clear"
@@ -244,16 +254,6 @@
               >
                 &#10005;
               </button>
-            </div>
-            <textarea
-              class="note-input"
-              id="session-note"
-              rows="2"
-              maxlength="500"
-              placeholder="What are you focusing on?"
-              data-i18n-placeholder="notePlaceholder"
-              aria-labelledby="note-label"
-            ></textarea>
           </div>
 
           <div class="form-actions no-drag">

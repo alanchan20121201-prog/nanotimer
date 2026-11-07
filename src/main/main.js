@@ -31,7 +31,7 @@ const WINDOW_HEIGHT = 424;
 const EDGE_SNAP_DELAY_MS = 120;
 const WINDOW_SIZES = Object.freeze({
   setup: { width: WINDOW_WIDTH, height: WINDOW_HEIGHT },
-  capsule: { width: 348, height: 198 },
+  capsule: { width: 348, height: 236 },
   mini: { width: 208, height: 208 }
 });
 const DISPLAY_MODES = new Set(['setup', 'capsule', 'mini', 'fullscreen']);

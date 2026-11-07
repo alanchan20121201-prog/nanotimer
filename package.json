@@ -1,7 +1,7 @@
 {
   "name": "nanotimer",
   "productName": "nanotimer",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "private": true,
   "description": "nanotimer - a frameless, transparent floating timer widget for Windows.",
   "author": "Alan",
@@ -61,11 +61,12 @@
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
+      "createDesktopShortcut": false,
       "createStartMenuShortcut": true,
       "shortcutName": "nanotimer",
       "artifactName": "${productName}-${version}-setup.${ext}",
-      "deleteAppDataOnUninstall": false
+      "deleteAppDataOnUninstall": false,
+      "include": "build/installer.nsh"
     },
     "publish": [
       {

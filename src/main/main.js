@@ -1097,7 +1097,20 @@ function registerWindowIpc() {
     try {
       const buffer = await fs.promises.readFile(filePath);
       const actual = crypto.createHash('sha256').update(buffer).digest('hex');
-      return actual === expectedUpdateDigest;
+
+      if (actual !== expectedUpdateDigest) {
+        // A truncated or corrupted transfer is the usual culprit, so report the
+        // hashes and let the caller try a clean download once more.
+        console.warn(
+          'nanotimer: update digest mismatch. expected %s, got %s, %d bytes',
+          expectedUpdateDigest.slice(0, 12),
+          actual.slice(0, 12),
+          buffer.length
+        );
+        return false;
+      }
+
+      return true;
     } catch (error) {
       console.warn('nanotimer: update verification failed.', error.message);
       return false;
@@ -1151,51 +1164,69 @@ function registerWindowIpc() {
           differential: true
         });
 
-        if (!(await verifyInstaller(target))) {
-          await fs.promises.rm(target, { force: true });
-          return { ok: false, message: 'checksum' };
+        if (await verifyInstaller(target)) {
+          return {
+            ok: true,
+            path: target,
+            name: fileName,
+            differential: true,
+            bytes: differential.bytes,
+            downloaded: differential.downloaded,
+            savedPercent: Math.round((differential.savedRatio || 0) * 100)
+          };
         }
 
-        return {
-          ok: true,
-          path: target,
-          name: fileName,
-          differential: true,
-          bytes: differential.bytes,
-          downloaded: differential.downloaded,
-          savedPercent: Math.round((differential.savedRatio || 0) * 100)
-        };
+        // The patched file did not match the published digest; drop it and pull
+        // a clean copy instead of refusing the update.
+        console.warn('nanotimer: differential result rejected, downloading in full.');
+        await fs.promises.rm(target, { force: true });
       }
 
-      const response = await net.fetch(parsed.toString());
+      const downloadFull = async () => {
+        const response = await net.fetch(parsed.toString());
 
-      if (!response.ok || !response.body) {
-        return { ok: false, message: String(response.status) };
-      }
+        if (!response.ok || !response.body) {
+          return { error: String(response.status) };
+        }
 
-      const total = Number(response.headers.get('content-length') || 0);
-      let received = 0;
-      lastReport = 0;
-      const handle = await fs.promises.open(target, 'w');
+        const total = Number(response.headers.get('content-length') || 0);
+        let received = 0;
+        lastReport = 0;
+        const handle = await fs.promises.open(target, 'w');
 
-      try {
-        for await (const chunk of response.body) {
-          await handle.write(chunk);
-          received += chunk.length;
+        try {
+          for await (const chunk of response.body) {
+            await handle.write(chunk);
+            received += chunk.length;
 
-          if (Date.now() - lastReport > 200) {
-            lastReport = Date.now();
-            event.sender.send('update:progress', { received, total });
+            if (Date.now() - lastReport > 200) {
+              lastReport = Date.now();
+              event.sender.send('update:progress', { received, total });
+            }
           }
+        } finally {
+          await handle.close();
         }
-      } finally {
-        await handle.close();
+
+        event.sender.send('update:progress', {
+          received,
+          total: total || received
+        });
+
+        return { received };
+      };
+
+      let attempt = await downloadFull();
+
+      if (!attempt.error && !(await verifyInstaller(target))) {
+        await fs.promises.rm(target, { force: true });
+        console.warn('nanotimer: retrying the download once.');
+        attempt = await downloadFull();
       }
 
-      event.sender.send('update:progress', {
-        received,
-        total: total || received
-      });
+      if (attempt.error) {
+        return { ok: false, message: attempt.error };
+      }
 
       if (!(await verifyInstaller(target))) {
         await fs.promises.rm(target, { force: true });

@@ -68,9 +68,6 @@ const durationApply = document.getElementById('duration-apply');
 const durationMinutes = document.getElementById('duration-minutes');
 const durationSeconds = document.getElementById('duration-seconds');
 const modeSelect = document.getElementById('mode-select');
-const modeButtons = Array.from(
-  document.querySelectorAll('[data-display-mode]')
-);
 const presetSelect = document.querySelector('[data-preset-select]');
 const presetRenameButton = document.querySelector('#preset-rename');
 const presetDeleteButton = document.querySelector('#preset-delete');
@@ -239,9 +236,6 @@ const UI_TEXT = {
     minutesShort: 'min',
     secondsShort: 'sec',
     removeTime: 'Take time off',
-    removeTime: '減少時間',
-    removeTime: '减少时间',
-    removeTime: '時間を減らす',
     addTime: 'Add time',
     endsAt: 'ends',
     elapsed: 'elapsed',
@@ -377,6 +371,7 @@ const UI_TEXT = {
     editDuration: '調整時間',
     minutesShort: '分',
     secondsShort: '秒',
+    removeTime: '減少時間',
     addTime: '加時',
     endsAt: '結束',
     elapsed: '已專注',
@@ -512,6 +507,7 @@ const UI_TEXT = {
     editDuration: '调整时间',
     minutesShort: '分',
     secondsShort: '秒',
+    removeTime: '减少时间',
     addTime: '加时',
     endsAt: '结束',
     elapsed: '已专注',
@@ -647,6 +643,7 @@ const UI_TEXT = {
     editDuration: '時間を調整',
     minutesShort: '分',
     secondsShort: '秒',
+    removeTime: '時間を減らす',
     addTime: '時間を追加',
     endsAt: '終了',
     elapsed: '経過',
@@ -1423,13 +1420,6 @@ function prefersReducedMotion() {
 function syncDisplayModeControls(nextMode) {
   if (modeSelect) {
     modeSelect.value = DISPLAY_MODE_ORDER.includes(nextMode) ? nextMode : '';
-  }
-
-  for (const button of modeButtons) {
-    button.setAttribute(
-      'aria-pressed',
-      String(button.dataset.displayMode === nextMode)
-    );
   }
 }
 
@@ -3400,12 +3390,6 @@ window.addEventListener('blur', stopWindowDrag);
 
 if (exitFullscreenButton) {
   exitFullscreenButton.addEventListener('click', exitFullscreen);
-}
-
-for (const button of modeButtons) {
-  button.addEventListener('click', () => {
-    applyDisplayMode(button.dataset.displayMode);
-  });
 }
 
 if (modeSelect) {

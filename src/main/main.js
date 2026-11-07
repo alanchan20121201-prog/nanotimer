@@ -75,6 +75,10 @@ const BACKGROUND_TOKEN_PATTERN =
 // One profile directory for every build (installer and portable) so an
 // update never loses the background image, presets or history. Dropping a
 // `portable.txt` file next to the executable keeps the profile local instead.
+const modePositions = {};
+let edgeSnapEnabled = true;
+let prefsPath = null;
+
 function resolveUserDataDirectory() {
   const override = process.env.NANOTIMER_PROFILE;
   if (override && override.trim()) {
@@ -153,9 +157,6 @@ let suppressEdgeSnapUntil = 0;
 
 // Per-mode window positions and small preferences live next to the profile so
 // the widget reopens where the user left it.
-const modePositions = {};
-let edgeSnapEnabled = true;
-let prefsPath = null;
 // Window surface is temporarily transparent while a fullscreen restore is
 // resizing the window (see setWindowDisplayMode).
 let hiddenForResize = false;

@@ -1060,14 +1060,46 @@ function registerWindowIpc() {
   });
 }
 
-// The repository is read from package.json so a fork only has to change
-// `build.publish` instead of hunting for a second copy of the owner here.
+// The repository is read from package.json so a fork only has to change the
+// metadata there instead of hunting for a second copy of the owner here.
+// electron-builder strips the `build` block from the packaged package.json, so
+// `repository` / `homepage` (which survive packaging) are the primary source.
 const PACKAGE_JSON = require('../../package.json');
 const PUBLISH_CONFIG = Array.isArray(PACKAGE_JSON.build?.publish)
   ? PACKAGE_JSON.build.publish[0]
   : null;
-const UPDATE_OWNER = PUBLISH_CONFIG?.owner || 'alan';
-const UPDATE_REPO = PUBLISH_CONFIG?.repo || 'nanotimer';
+
+function resolveRepositorySlug() {
+  if (PUBLISH_CONFIG && PUBLISH_CONFIG.owner && PUBLISH_CONFIG.repo) {
+    return [PUBLISH_CONFIG.owner, PUBLISH_CONFIG.repo];
+  }
+
+  const candidates = [
+    typeof PACKAGE_JSON.repository === 'string'
+      ? PACKAGE_JSON.repository
+      : PACKAGE_JSON.repository && PACKAGE_JSON.repository.url,
+    PACKAGE_JSON.homepage,
+    PACKAGE_JSON.bugs && PACKAGE_JSON.bugs.url
+  ];
+
+  for (const candidate of candidates) {
+    const match =
+      typeof candidate === 'string'
+        ? candidate.match(
+            /github\.com[/:]([^/\s]+)\/([^/\s#?]+?)(?:\.git)?(?:[/#?]|$)/i
+          )
+        : null;
+
+    if (match) {
+      return [match[1], match[2]];
+    }
+  }
+
+  return ['alanchan20121201-prog', 'nanotimer'];
+}
+
+const [UPDATE_OWNER, UPDATE_REPO] = resolveRepositorySlug();
+console.log(`nanotimer: update source github.com/${UPDATE_OWNER}/${UPDATE_REPO}`);
 const UPDATE_DIRECTORY_NAME = 'updates';
 const RELEASE_API = `https://api.github.com/repos/${UPDATE_OWNER}/${UPDATE_REPO}/releases/latest`;
 

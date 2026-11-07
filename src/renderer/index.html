@@ -228,8 +228,23 @@
             </label>
           </div>
 
-          <label class="note-field no-drag">
-            <span class="field-label" data-i18n="noteLabel">Focus note</span>
+          <div class="note-field no-drag">
+            <div class="note-head">
+              <span class="field-label" id="note-label" data-i18n="noteLabel">Focus note</span>
+              <button
+                class="chip-button chip-button--icon"
+                id="note-clear"
+                type="button"
+                title="Clear the note"
+                data-i18n-title="noteClear"
+                aria-label="Clear the note"
+                data-i18n-aria-label="noteClear"
+                aria-describedby="note-label"
+                disabled
+              >
+                &#10005;
+              </button>
+            </div>
             <textarea
               class="note-input"
               id="session-note"
@@ -237,8 +252,9 @@
               maxlength="500"
               placeholder="What are you focusing on?"
               data-i18n-placeholder="notePlaceholder"
+              aria-labelledby="note-label"
             ></textarea>
-          </label>
+          </div>
 
           <div class="form-actions no-drag">
             <button
@@ -298,6 +314,16 @@
         </div>
         <p class="time" id="time-display" data-timer-display>00:00</p>
         <p class="hint" id="timer-status">Focusing</p>
+        <p class="note-preview" id="timer-note" hidden></p>
+
+        <div class="extend-row no-drag" id="extend-row" hidden>
+          <button class="extend-chip" id="extend-one" type="button" title="Add time" data-i18n-title="addTime">
+            +1
+          </button>
+          <button class="extend-chip" id="extend-five" type="button" title="Add time" data-i18n-title="addTime">
+            +5
+          </button>
+        </div>
 
         <div class="timer-actions no-drag">
           <button
@@ -381,6 +407,84 @@
 
       <div
         class="help-sheet"
+        id="duration-sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="duration-title"
+        hidden
+      >
+        <div class="help-head">
+          <h2 class="help-title" id="duration-title" data-i18n="editDuration">Edit duration</h2>
+          <button class="help-close" id="duration-close" type="button">&times;</button>
+        </div>
+        <div class="settings-body">
+          <div class="settings-row duration-inputs">
+            <input type="number" id="duration-minutes" min="0" max="999" step="1" value="0" />
+            <span data-i18n="minutesShort">min</span>
+            <input type="number" id="duration-seconds" min="0" max="59" step="1" value="0" />
+            <span data-i18n="secondsShort">sec</span>
+          </div>
+          <div class="settings-row buttons">
+            <button class="ghost-button" id="duration-cancel" type="button" data-i18n="presetCancel">Cancel</button>
+            <button class="primary-button" id="duration-apply" type="button" data-i18n="presetSave">Save</button>
+          </div>
+        </div>
+      </div>
+
+      <div
+        class="help-sheet wide"
+        id="settings-sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="settings-title"
+        hidden
+      >
+        <div class="help-head">
+          <h2 class="help-title" id="settings-title" data-i18n="settingsTitle">Preferences</h2>
+          <button class="help-close" id="settings-close" type="button">&times;</button>
+        </div>
+        <div class="settings-body">
+          <label class="settings-row checkbox">
+            <input type="checkbox" id="edge-snap-toggle" />
+            <span data-i18n="edgeSnap">Snap to screen edges</span>
+          </label>
+          <label class="settings-row" for="bg-dim">
+            <span data-i18n="backgroundDim">Background dim</span>
+            <input type="range" id="bg-dim" min="0" max="90" step="5" value="0" />
+            <span class="settings-value" id="bg-dim-value">0%</span>
+          </label>
+          <div class="settings-row buttons">
+            <button class="ghost-button" id="preview-sound" type="button" data-i18n="soundPreviewShort">Preview</button>
+            <button class="ghost-button" id="export-settings" type="button" data-i18n="exportSettings">Export settings</button>
+            <button class="ghost-button" id="import-settings" type="button" data-i18n="importSettings">Import settings</button>
+          </div>
+        </div>
+      </div>
+
+      <div
+        class="help-sheet wide"
+        id="history-sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="history-title"
+        hidden
+      >
+        <div class="help-head">
+          <h2 class="help-title" id="history-title" data-i18n="historyTitle">History</h2>
+          <button class="help-close" id="history-close" type="button">&times;</button>
+        </div>
+        <div class="history-body">
+          <p class="history-stats" id="history-stats"></p>
+          <ul class="history-list" id="history-list"></ul>
+          <div class="settings-row buttons">
+            <button class="ghost-button" id="history-clear" type="button" data-i18n="historyClear">Clear</button>
+            <button class="ghost-button" id="history-export" type="button" data-i18n="exportTxt">Export TXT</button>
+          </div>
+        </div>
+      </div>
+
+      <div
+        class="help-sheet"
         id="help-sheet"
         role="dialog"
         aria-modal="true"
@@ -459,31 +563,11 @@
           <span class="status-dot" aria-hidden="true"></span>
           <span id="footer-status">Ready when you are</span>
         </span>
-        <div
-          class="mode-controls no-drag"
-          role="group"
-          aria-label="Display mode"
-          data-i18n-aria-label="displayMode"
-        >
-          <button
-            class="mode-button"
-            type="button"
-            data-display-mode="capsule"
-            aria-pressed="true"
-            data-i18n="modeCapsule"
-          >
-            Capsule
-          </button>
-          <button
-            class="mode-button"
-            type="button"
-            data-display-mode="mini"
-            aria-pressed="false"
-            data-i18n="modeMini"
-          >
-            Mini
-          </button>
-        </div>
+        <button class="footer-chip no-drag icon" id="history-button" type="button" title="History" data-i18n-title="historyTitle">▤</button>
+        <button class="footer-chip no-drag icon" id="settings-button" type="button" title="Settings" data-i18n-title="settings">⚙</button>
+        <button class="undo-chip no-drag" id="undo-button" type="button" hidden data-i18n="undo">
+          Undo
+        </button>
         <span class="drag-note" aria-hidden="true" data-i18n="dragToMove">
           Drag to move
         </span>

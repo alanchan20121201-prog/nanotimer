@@ -27,7 +27,7 @@ const timingMark = (label) => {
   }
 };
 const WINDOW_WIDTH = 468;
-const WINDOW_HEIGHT = 378;
+const WINDOW_HEIGHT = 424;
 const EDGE_SNAP_DELAY_MS = 120;
 const WINDOW_SIZES = Object.freeze({
   setup: { width: WINDOW_WIDTH, height: WINDOW_HEIGHT },
@@ -142,6 +142,7 @@ try {
   migrateLegacyProfile(userDataDirectory);
   fs.mkdirSync(userDataDirectory, { recursive: true });
   app.setPath('userData', userDataDirectory);
+  loadPreferences(userDataDirectory);
 } catch (error) {
   console.warn('nanotimer: using default userData directory:', error.message);
 }
@@ -149,6 +150,12 @@ try {
 let mainWindow = null;
 let snapTimer = null;
 let suppressEdgeSnapUntil = 0;
+
+// Per-mode window positions and small preferences live next to the profile so
+// the widget reopens where the user left it.
+const modePositions = {};
+let edgeSnapEnabled = true;
+let prefsPath = null;
 // Window surface is temporarily transparent while a fullscreen restore is
 // resizing the window (see setWindowDisplayMode).
 let hiddenForResize = false;
@@ -176,10 +183,53 @@ function clearEdgeSnap() {
 // pointer when the user pauses near a screen edge.
 let windowDragging = false;
 
+function loadPreferences(profileDir) {
+  prefsPath = path.join(profileDir, 'preferences.json');
+
+  try {
+    const raw = fs.readFileSync(prefsPath, 'utf8');
+    const parsed = JSON.parse(raw);
+
+    if (parsed && typeof parsed === 'object') {
+      if (parsed.positions && typeof parsed.positions === 'object') {
+        for (const mode of ['capsule', 'mini']) {
+          const entry = parsed.positions[mode];
+
+          if (entry && Number.isFinite(entry.x) && Number.isFinite(entry.y)) {
+            modePositions[mode] = { x: entry.x, y: entry.y };
+          }
+        }
+      }
+
+      if (typeof parsed.edgeSnap === 'boolean') {
+        edgeSnapEnabled = parsed.edgeSnap;
+      }
+    }
+  } catch {
+    // First run or unreadable file: keep the defaults.
+  }
+}
+
+function savePreferences() {
+  if (!prefsPath) {
+    return;
+  }
+
+  try {
+    fs.writeFileSync(
+      prefsPath,
+      JSON.stringify({ positions: modePositions, edgeSnap: edgeSnapEnabled }, null, 2),
+      'utf8'
+    );
+  } catch (error) {
+    console.warn('nanotimer: could not save preferences:', error?.message || error);
+  }
+}
+
 function scheduleEdgeSnap(win) {
   clearEdgeSnap();
 
-  if (windowDragging || Date.now() < suppressEdgeSnapUntil) {
+  if (!edgeSnapEnabled || windowDragging || Date.now() < suppressEdgeSnapUntil) {
     return;
   }
 
@@ -398,6 +448,13 @@ async function setWindowDisplayMode(win, nextMode) {
 
   const size = WINDOW_SIZES[nextMode] || WINDOW_SIZES.capsule;
   const restoringFromFullscreen = displayState.mode === 'fullscreen';
+
+  // Remember where the mode we are leaving was, so switching back restores it.
+  if (!restoringFromFullscreen && (displayState.mode === 'capsule' || displayState.mode === 'mini')) {
+    const current = win.getBounds();
+    modePositions[displayState.mode] = { x: current.x, y: current.y };
+    savePreferences();
+  }
   const restore = displayState.restoreBounds;
 
   displayState.mode = nextMode;
@@ -435,10 +492,11 @@ async function setWindowDisplayMode(win, nextMode) {
   // jumping to wherever its top-left corner would land.
   const centerX = from.x + from.width / 2;
   const centerY = from.y + from.height / 2;
+  const remembered = restoringFromFullscreen ? null : modePositions[nextMode];
   const position = clampToWorkArea(
     win,
-    Math.round(centerX - size.width / 2),
-    Math.round(centerY - size.height / 2),
+    remembered ? remembered.x : Math.round(centerX - size.width / 2),
+    remembered ? remembered.y : Math.round(centerY - size.height / 2),
     size.width,
     size.height
   );
@@ -800,6 +858,70 @@ function registerWindowIpc() {
 
     if (!windowDragging && win && !win.isDestroyed()) {
       scheduleEdgeSnap(win);
+    }
+  });
+
+  ipcMain.handle('app:set-prefs', (event, prefs) => {
+    if (prefs && typeof prefs.edgeSnap === 'boolean') {
+      edgeSnapEnabled = prefs.edgeSnap;
+      savePreferences();
+    }
+
+    return { edgeSnap: edgeSnapEnabled };
+  });
+
+  ipcMain.handle('settings:export', async (event, payload) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+
+    if (!win || typeof payload !== 'string' || payload.length > 1024 * 1024) {
+      return { ok: false };
+    }
+
+    const result = await dialog.showSaveDialog(win, {
+      title: 'Export nanotimer settings',
+      defaultPath: 'nanotimer-settings.json',
+      filters: [{ name: 'JSON', extensions: ['json'] }]
+    });
+
+    if (result.canceled || !result.filePath) {
+      return { ok: false, canceled: true };
+    }
+
+    try {
+      fs.writeFileSync(result.filePath, payload, 'utf8');
+      return { ok: true, path: result.filePath };
+    } catch {
+      return { ok: false };
+    }
+  });
+
+  ipcMain.handle('settings:import', async (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+
+    if (!win) {
+      return { ok: false };
+    }
+
+    const result = await dialog.showOpenDialog(win, {
+      title: 'Import nanotimer settings',
+      properties: ['openFile'],
+      filters: [{ name: 'JSON', extensions: ['json'] }]
+    });
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return { ok: false, canceled: true };
+    }
+
+    try {
+      const text = fs.readFileSync(result.filePaths[0], 'utf8');
+
+      if (text.length > 1024 * 1024) {
+        return { ok: false };
+      }
+
+      return { ok: true, text };
+    } catch {
+      return { ok: false };
     }
   });
 

@@ -35,7 +35,35 @@ const helpCloseButton = document.getElementById('help-close');
 const updateButton = document.getElementById('update-button');
 const runModeSelect = document.getElementById('run-mode-select');
 const sessionNote = document.getElementById('session-note');
+const noteClearButton = document.getElementById('note-clear');
+const timerNote = document.getElementById('timer-note');
 const exportButton = document.getElementById('export-button');
+const extendRow = document.getElementById('extend-row');
+const extendOneButton = document.getElementById('extend-one');
+const extendFiveButton = document.getElementById('extend-five');
+const undoButton = document.getElementById('undo-button');
+const settingsSheet = document.getElementById('settings-sheet');
+const settingsButton = document.getElementById('settings-button');
+const settingsClose = document.getElementById('settings-close');
+const edgeSnapToggle = document.getElementById('edge-snap-toggle');
+const bgDim = document.getElementById('bg-dim');
+const bgDimValue = document.getElementById('bg-dim-value');
+const previewSoundButton = document.getElementById('preview-sound');
+const exportSettingsButton = document.getElementById('export-settings');
+const importSettingsButton = document.getElementById('import-settings');
+const historySheet = document.getElementById('history-sheet');
+const historyButton = document.getElementById('history-button');
+const historyClose = document.getElementById('history-close');
+const historyStats = document.getElementById('history-stats');
+const historyList = document.getElementById('history-list');
+const historyClear = document.getElementById('history-clear');
+const historyExport = document.getElementById('history-export');
+const durationSheet = document.getElementById('duration-sheet');
+const durationClose = document.getElementById('duration-close');
+const durationCancel = document.getElementById('duration-cancel');
+const durationApply = document.getElementById('duration-apply');
+const durationMinutes = document.getElementById('duration-minutes');
+const durationSeconds = document.getElementById('duration-seconds');
 const modeSelect = document.getElementById('mode-select');
 const modeButtons = Array.from(
   document.querySelectorAll('[data-display-mode]')
@@ -62,6 +90,7 @@ const MUTE_KEY = 'nanotimer.alarmMuted';
 const LOGS_KEY = 'nanotimer.logs';
 const STOPWATCH_KEY = 'nanotimer.runMode';
 const STATS_KEY = 'nanotimer.stats';
+const NOTE_KEY = 'nanotimer.note';
 const POMODORO_ROUNDS = 4;
 const POMODORO_SHORT_MS = 5 * 60 * 1000;
 const POMODORO_LONG_MS = 15 * 60 * 1000;
@@ -195,6 +224,31 @@ const UI_TEXT = {
     statsStreak: '{n}-day streak',
     extended: 'Added five minutes',
     noteLabel: 'Focus note',
+    noteClear: 'Clear the note',
+    soundPreviewShort: 'Preview',
+    editDuration: 'Edit duration',
+    minutesShort: 'min',
+    secondsShort: 'sec',
+    addTime: 'Add time',
+    endsAt: 'ends',
+    elapsed: 'elapsed',
+    undo: 'Undo',
+    resetDone: 'Timer reset',
+    settings: 'Settings & history',
+    statsTitle: 'Focus stats',
+    historyTitle: 'History',
+    historyEmpty: 'No sessions yet.',
+    historyClear: 'Clear history',
+    settingsTitle: 'Preferences',
+    edgeSnap: 'Snap to screen edges',
+    backgroundDim: 'Background dim',
+    exportSettings: 'Export settings…',
+    importSettings: 'Import settings…',
+    settingsExported: 'Settings exported.',
+    settingsImported: 'Settings imported.',
+    saveFailed: 'Could not save.',
+    streakLabel: '{n}-day streak',
+    weekLabel: 'This week · {m} min',
     notePlaceholder: 'What are you focusing on?',
     exportTxt: 'Export TXT',
     exported: 'Log exported',
@@ -302,6 +356,31 @@ const UI_TEXT = {
     statsStreak: '連續 {n} 天',
     extended: '已加 5 分鐘',
     noteLabel: '專注筆記',
+    noteClear: '清除筆記',
+    soundPreviewShort: '試聽',
+    editDuration: '調整時間',
+    minutesShort: '分',
+    secondsShort: '秒',
+    addTime: '加時',
+    endsAt: '結束',
+    elapsed: '已專注',
+    undo: '復原',
+    resetDone: '已重設',
+    settings: '設定與紀錄',
+    statsTitle: '專注統計',
+    historyTitle: '歷史紀錄',
+    historyEmpty: '還沒有紀錄。',
+    historyClear: '清除紀錄',
+    settingsTitle: '偏好設定',
+    edgeSnap: '吸附螢幕邊緣',
+    backgroundDim: '背景暗度',
+    exportSettings: '匯出設定…',
+    importSettings: '匯入設定…',
+    settingsExported: '設定已匯出。',
+    settingsImported: '設定已匯入。',
+    saveFailed: '無法儲存。',
+    streakLabel: '連續 {n} 天',
+    weekLabel: '本週 · {m} 分',
     notePlaceholder: '這次要專注什麼？',
     exportTxt: '匯出 TXT',
     exported: '紀錄已匯出',
@@ -409,6 +488,31 @@ const UI_TEXT = {
     statsStreak: '连续 {n} 天',
     extended: '已加 5 分钟',
     noteLabel: '专注笔记',
+    noteClear: '清除笔记',
+    soundPreviewShort: '试听',
+    editDuration: '调整时间',
+    minutesShort: '分',
+    secondsShort: '秒',
+    addTime: '加时',
+    endsAt: '结束',
+    elapsed: '已专注',
+    undo: '撤销',
+    resetDone: '已重置',
+    settings: '设置与记录',
+    statsTitle: '专注统计',
+    historyTitle: '历史记录',
+    historyEmpty: '还没有记录。',
+    historyClear: '清除记录',
+    settingsTitle: '偏好设置',
+    edgeSnap: '吸附屏幕边缘',
+    backgroundDim: '背景暗度',
+    exportSettings: '导出设置…',
+    importSettings: '导入设置…',
+    settingsExported: '设置已导出。',
+    settingsImported: '设置已导入。',
+    saveFailed: '无法保存。',
+    streakLabel: '连续 {n} 天',
+    weekLabel: '本周 · {m} 分',
     notePlaceholder: '这次要专注什么？',
     exportTxt: '导出 TXT',
     exported: '记录已导出',
@@ -516,6 +620,31 @@ const UI_TEXT = {
     statsStreak: '{n} 日連続',
     extended: '5 分追加しました',
     noteLabel: 'フォーカスメモ',
+    noteClear: 'メモを消去',
+    soundPreviewShort: '試聴',
+    editDuration: '時間を調整',
+    minutesShort: '分',
+    secondsShort: '秒',
+    addTime: '時間を追加',
+    endsAt: '終了',
+    elapsed: '経過',
+    undo: '元に戻す',
+    resetDone: 'リセットしました',
+    settings: '設定と履歴',
+    statsTitle: '集中の記録',
+    historyTitle: '履歴',
+    historyEmpty: 'まだ記録がありません。',
+    historyClear: '履歴を消す',
+    settingsTitle: '環境設定',
+    edgeSnap: '画面の端に吸着',
+    backgroundDim: '背景の暗さ',
+    exportSettings: '設定を書き出す…',
+    importSettings: '設定を読み込む…',
+    settingsExported: '設定を書き出しました。',
+    settingsImported: '設定を読み込みました。',
+    saveFailed: '保存できませんでした。',
+    streakLabel: '{n} 日連続',
+    weekLabel: '今週 · {m} 分',
     notePlaceholder: '何に集中しますか？',
     exportTxt: 'TXTを書き出す',
     exported: 'ログを書き出しました',
@@ -574,9 +703,92 @@ let activeNote = '';
 let sessionRecorded = false;
 let logs = [];
 
-function t(key) {
+function readNoteDraft() {
+  try {
+    return localStorage.getItem(NOTE_KEY) || '';
+  } catch {
+    return '';
+  }
+}
+
+function syncNoteControls() {
+  const value = sessionNote ? sessionNote.value : '';
+
+  if (noteClearButton) {
+    noteClearButton.disabled = value.length === 0;
+  }
+}
+
+let noteSaveTimer = null;
+
+function saveNoteDraft() {
+  if (!sessionNote) {
+    return;
+  }
+
+  syncNoteControls();
+
+  if (noteSaveTimer !== null) {
+    window.clearTimeout(noteSaveTimer);
+  }
+
+  noteSaveTimer = window.setTimeout(() => {
+    noteSaveTimer = null;
+    try {
+      localStorage.setItem(NOTE_KEY, sessionNote.value);
+    } catch {
+      /* storage full or disabled — the note still works for this session */
+    }
+  }, 300);
+}
+
+function clearNoteDraft() {
+  if (!sessionNote) {
+    return;
+  }
+
+  sessionNote.value = '';
+  sessionNote.focus({ preventScroll: true });
+  saveNoteDraft();
+}
+
+function applyNoteDraft() {
+  if (!sessionNote) {
+    return;
+  }
+
+  sessionNote.value = readNoteDraft();
+  syncNoteControls();
+}
+
+function renderTimerNote() {
+  if (!timerNote) {
+    return;
+  }
+
+  const note = (activeNote || '').trim();
+
+  if (!note || mode === 'setup') {
+    timerNote.hidden = true;
+    timerNote.textContent = '';
+    return;
+  }
+
+  timerNote.textContent = note;
+  timerNote.hidden = false;
+}
+
+function t(key, vars) {
   const table = UI_TEXT[currentLanguage] || UI_TEXT[DEFAULT_LANGUAGE];
-  return table[key] ?? UI_TEXT[DEFAULT_LANGUAGE][key] ?? key;
+  let text = table[key] ?? UI_TEXT[DEFAULT_LANGUAGE][key] ?? key;
+
+  if (vars && typeof text === 'string') {
+    for (const [name, value] of Object.entries(vars)) {
+      text = text.split(`{${name}}`).join(String(value));
+    }
+  }
+
+  return text;
 }
 
 function detectLanguage() {
@@ -2183,6 +2395,7 @@ function startCountdown(durationMs) {
 
   renderRemaining(durationMs);
   renderModeLabels();
+  renderTimerNote();
   announce(t('focusing'));
 
   tickId = window.setInterval(tick, TICK_MS);
@@ -2211,6 +2424,7 @@ function startStopwatch() {
 
   renderRemaining(0);
   renderModeLabels();
+  renderTimerNote();
   announce(t('stopwatchRunning'));
   tickId = window.setInterval(tick, TICK_MS);
 }
@@ -2501,6 +2715,19 @@ function requestResetConfirmation() {
 }
 
 function resetToSetup() {
+  const snapshot =
+    mode === 'running' || mode === 'paused'
+      ? {
+          runMode,
+          totalMs,
+          remainingMs,
+          elapsedBase,
+          note: activeNote,
+          round: pomodoroRound,
+          phase: pomodoroPhase
+        }
+      : null;
+
   clearResetConfirmation();
   stopAlarm();
   stopTicking();
@@ -2530,18 +2757,148 @@ function resetToSetup() {
   errorDescriptor = null;
   setFormMessage(null);
 
-  if (sessionNote) {
-    sessionNote.value = '';
-  }
-
+  renderTimerNote();
   renderRemaining(0);
   showSetupView();
-  announce('');
+
+  if (snapshot && snapshot.remainingMs > 0) {
+    armUndo(snapshot);
+  } else {
+    clearUndo();
+  }
+
+  announce(snapshot ? t('resetDone') : '');
 
   if (!hoursInput.disabled) {
     hoursInput.focus({ preventScroll: true });
     hoursInput.select();
   }
+}
+
+function clockTime(timestamp) {
+  if (!timestamp) {
+    return '';
+  }
+
+  const date = new Date(timestamp);
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+
+  return `${hours}:${minutes}`;
+}
+
+function elapsedMs() {
+  if (runMode === 'stopwatch') {
+    return remainingMs;
+  }
+
+  return Math.max(0, totalMs - remainingMs);
+}
+
+function statusText(key) {
+  const base = t(key);
+
+  if (mode === 'running' && runMode !== 'stopwatch' && endAt > 0) {
+    return `${base} · ${clockTime(endAt)} ${t('endsAt')}`;
+  }
+
+  if (mode === 'paused' && remainingMs > 0) {
+    return `${base} · ${formatDuration(elapsedMs())} ${t('elapsed')}`;
+  }
+
+  return base;
+}
+
+function syncExtendRow() {
+  if (!extendRow) {
+    return;
+  }
+
+  const active = mode === 'running' || mode === 'paused';
+  extendRow.hidden = !(active && runMode !== 'stopwatch');
+}
+
+function extendActive(minutes) {
+  if (mode !== 'running' && mode !== 'paused') {
+    return;
+  }
+
+  if (runMode === 'stopwatch') {
+    return;
+  }
+
+  const delta = minutes * 60 * 1000;
+  totalMs += delta;
+  remainingMs += delta;
+
+  if (mode === 'running') {
+    endAt += delta;
+  }
+
+  renderRemaining(remainingMs);
+  renderModeLabels();
+  announce(t('addTime'));
+}
+
+let undoSnapshot = null;
+let undoTimer = null;
+
+function clearUndo() {
+  undoSnapshot = null;
+
+  if (undoTimer !== null) {
+    window.clearTimeout(undoTimer);
+    undoTimer = null;
+  }
+
+  if (undoButton) {
+    undoButton.hidden = true;
+  }
+}
+
+function restoreUndo() {
+  if (!undoSnapshot) {
+    return;
+  }
+
+  const snapshot = undoSnapshot;
+  clearUndo();
+
+  runMode = snapshot.runMode;
+  totalMs = snapshot.totalMs;
+  remainingMs = snapshot.remainingMs;
+  elapsedBase = snapshot.elapsedBase;
+  activeNote = snapshot.note;
+  pomodoroRound = snapshot.round;
+  pomodoroPhase = snapshot.phase;
+  sessionRecorded = true;
+
+  setRunMode(runMode);
+  setMode('paused');
+  showTimerView();
+  applyDisplayMode('capsule');
+  renderRemaining(remainingMs);
+  renderModeLabels();
+  renderTimerNote();
+  announce(t('paused'));
+}
+
+function armUndo(snapshot) {
+  undoSnapshot = snapshot;
+
+  if (undoButton) {
+    undoButton.hidden = false;
+  }
+
+  if (undoTimer !== null) {
+    window.clearTimeout(undoTimer);
+  }
+
+  undoTimer = window.setTimeout(() => {
+    undoTimer = null;
+    clearUndo();
+    renderModeLabels();
+  }, 5000);
 }
 
 function renderModeLabels() {
@@ -2551,6 +2908,9 @@ function renderModeLabels() {
         ? pomodoroRoundText()
         : t('focusCapsule');
   }
+
+  renderTimerNote();
+  syncExtendRow();
 
   if (mode === 'setup') {
     pauseButton.textContent = t('pause');
@@ -2571,7 +2931,7 @@ function renderModeLabels() {
           : runMode === 'pomodoro' && pomodoroPhase === 'long'
             ? 'breakLongRunning'
             : 'focusing';
-    timerStatus.textContent = t(runningKey);
+    timerStatus.textContent = statusText(runningKey);
     footerStatus.textContent = t(runningKey);
     return;
   }
@@ -2579,7 +2939,7 @@ function renderModeLabels() {
   if (mode === 'paused') {
     pauseButton.textContent = t('resume');
     resetButton.textContent = t('reset');
-    timerStatus.textContent = t('paused');
+    timerStatus.textContent = statusText('paused');
     footerStatus.textContent = t('paused');
     return;
   }
@@ -2647,6 +3007,18 @@ if (runModeSelect) {
 
 if (exportButton) {
   exportButton.addEventListener('click', exportLog);
+}
+
+if (extendOneButton) {
+  extendOneButton.addEventListener('click', () => extendActive(1));
+}
+
+if (extendFiveButton) {
+  extendFiveButton.addEventListener('click', () => extendActive(5));
+}
+
+if (undoButton) {
+  undoButton.addEventListener('click', restoreUndo);
 }
 
 timerForm.addEventListener('submit', (event) => {
@@ -2977,6 +3349,21 @@ function isInteractiveTarget(target) {
 }
 
 helpButton?.addEventListener('click', () => {
+  if (durationSheet && !durationSheet.hidden) {
+    closeDurationSheet();
+    return;
+  }
+
+  if (settingsSheet && !settingsSheet.hidden) {
+    closeSettingsSheet();
+    return;
+  }
+
+  if (historySheet && !historySheet.hidden) {
+    closeHistorySheet();
+    return;
+  }
+
   if (isHelpOpen()) {
     closeHelp();
   } else {
@@ -3107,6 +3494,358 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
+if (sessionNote) {
+  sessionNote.addEventListener('input', saveNoteDraft);
+}
+
+if (noteClearButton) {
+  noteClearButton.addEventListener('click', () => {
+    clearNoteDraft();
+  });
+}
+
+
+// --- settings & history sheets ------------------------------------------------
+
+const EDGE_SNAP_KEY = 'nanotimer.edgeSnap';
+const BG_DIM_KEY = 'nanotimer.bgDim';
+
+function readSetting(key, fallback) {
+  try {
+    const raw = window.localStorage.getItem(key);
+    return raw === null ? fallback : raw;
+  } catch (error) {
+    return fallback;
+  }
+}
+
+function writeSetting(key, value) {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch (error) {
+    // storage full or blocked: the UI still reflects the change
+  }
+}
+
+function applyBackgroundDim(value) {
+  const dim = Math.min(90, Math.max(0, Number(value) || 0));
+
+  widget.style.setProperty('--bg-dim', String(dim));
+
+  if (bgDim) {
+    bgDim.value = String(dim);
+  }
+
+  if (bgDimValue) {
+    bgDimValue.textContent = `${Math.round(dim)}%`;
+  }
+}
+
+function openSettingsSheet() {
+  if (!settingsSheet) {
+    return;
+  }
+
+  if (edgeSnapToggle) {
+    edgeSnapToggle.checked = readSetting(EDGE_SNAP_KEY, 'true') !== 'false';
+  }
+
+  
+function openDurationSheet() {
+  if (!durationSheet || (mode !== 'running' && mode !== 'paused')) {
+    return;
+  }
+
+  const totalSeconds = Math.max(0, Math.round(remainingMs / 1000));
+  durationMinutes.value = String(Math.floor(totalSeconds / 60));
+  durationSeconds.value = String(totalSeconds % 60);
+  closeHelp();
+  durationSheet.hidden = false;
+  durationMinutes.focus();
+  durationMinutes.select();
+}
+
+function closeDurationSheet() {
+  if (durationSheet) {
+    durationSheet.hidden = true;
+  }
+}
+
+function applyDurationSheet() {
+  if (mode !== 'running' && mode !== 'paused') {
+    closeDurationSheet();
+    return;
+  }
+
+  const minutes = Math.max(0, Math.min(999, Math.round(Number(durationMinutes.value) || 0)));
+  const seconds = Math.max(0, Math.min(59, Math.round(Number(durationSeconds.value) || 0)));
+  const next = (minutes * 60 + seconds) * 1000;
+
+  if (next <= 0) {
+    return;
+  }
+
+  if (runMode === 'stopwatch') {
+    totalMs = next;
+    remainingMs = next;
+  } else {
+    const elapsed = Math.max(0, totalMs - remainingMs);
+    totalMs = Math.max(next, elapsed);
+    remainingMs = next;
+
+    if (mode === 'running') {
+      endAt = Date.now() + next;
+    }
+  }
+
+  closeDurationSheet();
+  renderRemaining(remainingMs);
+  renderModeLabels();
+  announce(t('editDuration'));
+}
+
+if (timeDisplay) {
+  timeDisplay.addEventListener('click', () => {
+    if (mode === 'running' || mode === 'paused') {
+      openDurationSheet();
+    }
+  });
+}
+
+if (durationClose) {
+  durationClose.addEventListener('click', closeDurationSheet);
+}
+
+if (durationCancel) {
+  durationCancel.addEventListener('click', closeDurationSheet);
+}
+
+if (durationApply) {
+  durationApply.addEventListener('click', applyDurationSheet);
+}
+
+if (durationSheet) {
+  durationSheet.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      applyDurationSheet();
+    }
+  });
+}
+
+applyBackgroundDim(readSetting(BG_DIM_KEY, '0'));
+  closeHelp();
+  settingsSheet.hidden = false;
+  announce(t('settingsTitle'));
+}
+
+function closeSettingsSheet() {
+  if (settingsSheet) {
+    settingsSheet.hidden = true;
+  }
+}
+
+function renderHistorySheet() {
+  if (!historyList || !historyStats) {
+    return;
+  }
+
+  const today = dayKey(new Date());
+  const entry = stats[today] || { sessions: 0, seconds: 0 };
+  const weekSeconds = Object.entries(stats)
+    .filter(([key]) => {
+      const date = new Date(`${key}T00:00:00`);
+      return (Date.now() - date.getTime()) / 86400000 < 7;
+    })
+    .reduce((total, [, value]) => total + (Number(value?.seconds) || 0), 0);
+
+  historyStats.textContent = [
+    t('statsToday', { n: entry.sessions || 0, m: Math.round((entry.seconds || 0) / 60) }),
+    t('weekLabel', { m: Math.round(weekSeconds / 60) }),
+    t('streakLabel', { n: currentStreak() })
+  ].join(' · ');
+
+  historyList.textContent = '';
+
+  if (logs.length === 0) {
+    const empty = document.createElement('li');
+    empty.textContent = t('historyEmpty');
+    historyList.appendChild(empty);
+    return;
+  }
+
+  logs.slice(0, 20).forEach((item) => {
+    const row = document.createElement('li');
+    const when = document.createElement('span');
+    const amount = document.createElement('span');
+    const date = new Date(item.date);
+
+    when.textContent = `${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}${item.note ? ` · ${item.note}` : ''}`;
+    amount.textContent = formatDuration((item.seconds || 0) * 1000);
+    row.append(when, amount);
+    historyList.appendChild(row);
+  });
+}
+
+function openHistorySheet() {
+  if (!historySheet) {
+    return;
+  }
+
+  renderHistorySheet();
+  closeHelp();
+  historySheet.hidden = false;
+  announce(t('historyTitle'));
+}
+
+function closeHistorySheet() {
+  if (historySheet) {
+    historySheet.hidden = true;
+  }
+}
+
+function settingsPayload() {
+  const data = {};
+
+  try {
+    for (let index = 0; index < window.localStorage.length; index += 1) {
+      const key = window.localStorage.key(index);
+
+      if (key && key.startsWith('nanotimer.')) {
+        data[key] = window.localStorage.getItem(key);
+      }
+    }
+  } catch (error) {
+    return null;
+  }
+
+  return JSON.stringify({ app: 'nanotimer', version: 1, data }, null, 2);
+}
+
+async function exportSettings() {
+  if (typeof bridge?.exportSettings !== 'function') {
+    return;
+  }
+
+  const payload = settingsPayload();
+
+  if (!payload) {
+    setFormMessage({ key: 'saveFailed' });
+    return;
+  }
+
+  const result = await bridge.exportSettings(payload);
+
+  if (result && result.ok) {
+    announce(t('settingsExported'));
+  } else if (result && result.error) {
+    setFormMessage({ key: 'saveFailed' });
+  }
+}
+
+async function importSettings() {
+  if (typeof bridge?.importSettings !== 'function') {
+    return;
+  }
+
+  const result = await bridge.importSettings();
+
+  if (!result || !result.ok || typeof result.text !== 'string') {
+    return;
+  }
+
+  try {
+    const parsed = JSON.parse(result.text);
+    const data = parsed && typeof parsed.data === 'object' ? parsed.data : null;
+
+    if (!data) {
+      setFormMessage({ key: 'saveFailed' });
+      return;
+    }
+
+    Object.entries(data).forEach(([key, value]) => {
+      if (key.startsWith('nanotimer.') && typeof value === 'string') {
+        window.localStorage.setItem(key, value);
+      }
+    });
+
+    announce(t('settingsImported'));
+    window.location.reload();
+  } catch (error) {
+    setFormMessage({ key: 'saveFailed' });
+  }
+}
+
+if (settingsButton) {
+  settingsButton.addEventListener('click', openSettingsSheet);
+}
+
+if (settingsClose) {
+  settingsClose.addEventListener('click', closeSettingsSheet);
+}
+
+if (historyButton) {
+  historyButton.addEventListener('click', openHistorySheet);
+}
+
+if (historyClose) {
+  historyClose.addEventListener('click', closeHistorySheet);
+}
+
+if (edgeSnapToggle) {
+  edgeSnapToggle.addEventListener('change', () => {
+    const enabled = Boolean(edgeSnapToggle.checked);
+
+    writeSetting(EDGE_SNAP_KEY, enabled ? 'true' : 'false');
+
+    if (typeof bridge?.setPrefs === 'function') {
+      bridge.setPrefs({ edgeSnap: enabled });
+    }
+  });
+}
+
+if (bgDim) {
+  bgDim.addEventListener('input', () => {
+    applyBackgroundDim(bgDim.value);
+    writeSetting(BG_DIM_KEY, bgDim.value);
+  });
+}
+
+if (previewSoundButton) {
+  previewSoundButton.addEventListener('click', () => {
+    playCompletionSound();
+  });
+}
+
+if (exportSettingsButton) {
+  exportSettingsButton.addEventListener('click', exportSettings);
+}
+
+if (importSettingsButton) {
+  importSettingsButton.addEventListener('click', importSettings);
+}
+
+if (historyClear) {
+  historyClear.addEventListener('click', () => {
+    logs = [];
+    persistLogs();
+    stats = {};
+    persistStats();
+    renderHistorySheet();
+    renderModeLabels();
+  });
+}
+
+if (historyExport) {
+  historyExport.addEventListener('click', exportLog);
+}
+
+applyBackgroundDim(readSetting(BG_DIM_KEY, '0'));
+
+if (typeof bridge?.setPrefs === 'function') {
+  bridge.setPrefs({ edgeSnap: readSetting(EDGE_SNAP_KEY, 'true') !== 'false' });
+}
+
 window.addEventListener('beforeunload', stopTicking);
 
 currentLanguage = detectLanguage();
@@ -3129,6 +3868,7 @@ runMode = (() => {
 })();
 buildLanguageOptions();
 applyLastConfig();
+applyNoteDraft();
 loadStats();
 applyLanguage();
 setRunMode(runMode);

@@ -35,6 +35,9 @@ contextBridge.exposeInMainWorld(
     loadBackground: (token) => ipcRenderer.invoke('background:load', String(token)),
     exportLog: (text, suggestedName) =>
       ipcRenderer.invoke('notes:export', String(text), String(suggestedName)),
+    setPrefs: (prefs) => ipcRenderer.invoke('app:set-prefs', prefs || {}),
+    exportSettings: (text) => ipcRenderer.invoke('settings:export', String(text)),
+    importSettings: () => ipcRenderer.invoke('settings:import'),
     onExitFullscreen: (callback) => {
       if (typeof callback !== 'function') {
         return () => {};

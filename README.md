@@ -4,6 +4,13 @@ A frameless, transparent countdown / stopwatch that floats on your desktop. Buil
 
 **English** · [繁體中文](#繁體中文) · [简体中文](#简体中文) · [日本語](#日本語)
 
+![nanotimer in motion: the setup card, the floating capsule, the hover panel and the mini ring](docs/shots/demo.gif)
+
+> **Before you download.** The binaries are unsigned, so Windows SmartScreen shows
+> *Windows protected your PC* the first time you run them. Choose **More info → Run anyway**.
+> Every release also lists the SHA-256 of both files, and `nanotimer` verifies the hash again after
+> it downloads an update — a failed check is retried automatically.
+
 | Setup | Capsule panel |
 | --- | --- |
 | ![Setup card](docs/shots/02-setup-pomodoro.png) | ![Capsule panel](docs/shots/04-capsule-panel.png) |
@@ -124,6 +131,13 @@ test/                # node --test
 
 ## 繁體中文
 
+![nanotimer 動態展示：設定卡、懸浮膠囊、滑過展開的面板與迷你圓環](docs/shots/demo.gif)
+
+> **下載前請先看**：執行檔未簽章，第一次執行時 Windows 會顯示「Windows 已保護您的電腦」，
+> 請選「其他資訊 → 仍要執行」。每個 release 都會列出兩個檔案的 SHA-256；nanotimer 自己在
+> 下載更新後也會再核對一次，比對失敗會自動重試。
+
+
 ### 功能
 
 - **倒數、碼錶、番茄鐘** — 番茄鐘為 25 分鐘專注 / 5 分鐘短休 / 15 分鐘長休，共四輪，時間到會自動接續。
@@ -195,6 +209,13 @@ npm run dist       # 產生安裝版與免安裝版
 ---
 
 ## 简体中文
+
+![nanotimer 动态展示：设置卡、悬浮胶囊、划过展开的面板与迷你圆环](docs/shots/demo.gif)
+
+> **下载前请先看**：可执行文件未签名，第一次运行 Windows 会显示「Windows 已保护你的电脑」，
+> 请选「更多信息 → 仍要运行」。每个 release 都会列出两个文件的 SHA-256；nanotimer 自己
+> 在下载更新后也会再核对一次，比对失败会自动重试。
+
 
 ### 功能
 

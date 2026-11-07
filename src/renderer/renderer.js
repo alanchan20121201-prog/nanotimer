@@ -648,11 +648,11 @@ function persistLanguage(language) {
 // shapes are accepted and normalised on read; nothing is preinstalled.
 function presetLabel(preset) {
   const name = typeof preset?.name === 'string' ? preset.name.trim() : '';
-  if (name) {
-    return name;
-  }
+  const duration = formatDuration(Number(preset?.seconds || 0) * 1000);
 
-  return formatDuration(Number(preset?.seconds || 0) * 1000);
+  // Always show the duration; the name is the part the user recognises, the
+  // time is the part they actually need at a glance.
+  return name ? `${duration} ${name}` : duration;
 }
 
 function normalizePreset(entry) {
@@ -2021,12 +2021,25 @@ function closePresetSheet() {
   setFormMessage(null);
 }
 
+function cleanPresetName(name, seconds) {
+  const trimmed = (name || '').trim().slice(0, 24);
+
+  // Saving with the duration typed in as the name (or no name at all) should
+  // leave the label as the bare duration instead of "30:00 30:00".
+  if (!trimmed || trimmed === formatDuration(seconds * 1000)) {
+    return '';
+  }
+
+  return trimmed;
+}
+
 function submitPresetSheet(event) {
   event.preventDefault();
 
-  const name = (presetNameInput?.value || '').trim().slice(0, 24);
+  const rawName = (presetNameInput?.value || '').trim().slice(0, 24);
 
   if (presetSheetMode === 'rename') {
+    const name = rawName;
     const preset = presets[presetSheetIndex];
 
     if (preset && name) {
@@ -2047,7 +2060,10 @@ function submitPresetSheet(event) {
     return;
   }
 
-  presets.push({ name, seconds: presetSheetSeconds });
+  presets.push({
+    name: cleanPresetName(rawName, presetSheetSeconds),
+    seconds: presetSheetSeconds
+  });
   persistPresets();
   buildPresetOptions();
   presetSelect.value = `preset:${presets.length - 1}`;

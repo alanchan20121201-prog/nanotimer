@@ -340,7 +340,7 @@ body:has(.widget[data-mode="mini"]) {
 }
 
 .preset-select {
-  max-width: 128px;
+  max-width: 152px;
 }
 
 .language-select {

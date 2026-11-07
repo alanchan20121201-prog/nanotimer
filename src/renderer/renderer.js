@@ -704,6 +704,21 @@ let sizedMode = null;
 // Set when the capsule was opened by clicking the mini circle; leaving the
 // capsule then collapses back to mini ("peek" behaviour).
 let peekFromMini = false;
+/* The peek only collapses once the pointer is really outside the window. The
+   widget element itself is smaller than the window in capsule mode (the pill
+   floats in a transparent margin) and its layout moves while the window blooms
+   out of the mini circle, so a pointerleave on the widget fires even though the
+   pointer never left the panel. Both made the peek snap shut the moment it
+   opened, which made every mode unreachable from mini. */
+const PEEK_LEAVE_DELAY_MS = 140;
+let peekLeaveTimer = 0;
+
+function cancelPeekLeave() {
+  if (peekLeaveTimer) {
+    clearTimeout(peekLeaveTimer);
+    peekLeaveTimer = 0;
+  }
+}
 let customAudioPath = '';
 let backgroundToken = '';
 let customAudioUrl = '';
@@ -1450,6 +1465,7 @@ async function applyDisplayMode(nextMode) {
   // window back to mini as soon as the pointer leaves the restored capsule.
   if (nextMode !== 'capsule') {
     peekFromMini = false;
+    cancelPeekLeave();
   }
 
   const token = ++modeTransitionToken;
@@ -3429,11 +3445,57 @@ timerView.addEventListener('click', (event) => {
   }
 });
 
-widget.addEventListener('pointerleave', () => {
-  if (peekFromMini && displayMode === 'capsule') {
+widget.addEventListener('pointerenter', cancelPeekLeave);
+
+widget.addEventListener('pointerleave', (event) => {
+  if (!peekFromMini || displayMode !== 'capsule') {
+    return;
+  }
+
+  // Wait out the window resize before deciding: the capsule blooms out of the
+  // mini circle, so the pill slides under a pointer that never moved. Only the
+  // window rectangle tells whether the pointer actually left the panel.
+  const screenX = event.screenX;
+  const screenY = event.screenY;
+  cancelPeekLeave();
+
+  peekLeaveTimer = setTimeout(async () => {
+    peekLeaveTimer = 0;
+
+    if (!peekFromMini || displayMode !== 'capsule') {
+      return;
+    }
+
+    if (
+      Number.isFinite(screenX) &&
+      Number.isFinite(screenY) &&
+      typeof bridge?.getWindowBounds === 'function'
+    ) {
+      try {
+        const bounds = await bridge.getWindowBounds();
+
+        if (
+          bounds &&
+          screenX >= bounds.x &&
+          screenX <= bounds.x + bounds.width &&
+          screenY >= bounds.y &&
+          screenY <= bounds.y + bounds.height
+        ) {
+          return;
+        }
+      } catch (error) {
+        // Without bounds, fall back to collapsing: a stuck panel is worse than
+        // an eager one.
+      }
+    }
+
+    if (!peekFromMini || displayMode !== 'capsule') {
+      return;
+    }
+
     peekFromMini = false;
     applyDisplayMode('mini');
-  }
+  }, PEEK_LEAVE_DELAY_MS);
 });
 
 function isInteractiveTarget(target) {

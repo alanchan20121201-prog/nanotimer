@@ -460,6 +460,15 @@ async function setWindowDisplayMode(win, nextMode, heightHint) {
 
   const restoringFromFullscreen = displayState.mode === 'fullscreen';
 
+  // A capsule opened from the mini circle blooms out of the circle itself.
+  // Restoring the capsule's own remembered corner would make the pill appear
+  // somewhere else and pull itself away from the pointer that just clicked the
+  // ring: the pointer then ends up over the transparent margin, which the
+  // renderer reads as "the user left the panel" and collapses straight back to
+  // mini. Expanding in place keeps the click honest and makes every mode change
+  // from mini reachable.
+  const bloomingFromMini = displayState.mode === 'mini' && nextMode === 'capsule';
+
   // Remember where the mode we are leaving was, so switching back restores it.
   if (!restoringFromFullscreen && (displayState.mode === 'capsule' || displayState.mode === 'mini')) {
     const current = win.getBounds();
@@ -503,7 +512,7 @@ async function setWindowDisplayMode(win, nextMode, heightHint) {
   // jumping to wherever its top-left corner would land.
   const centerX = from.x + from.width / 2;
   const centerY = from.y + from.height / 2;
-  const remembered = restoringFromFullscreen ? null : modePositions[nextMode];
+  const remembered = restoringFromFullscreen || bloomingFromMini ? null : modePositions[nextMode];
   const position = clampToWorkArea(
     win,
     remembered ? remembered.x : Math.round(centerX - size.width / 2),
@@ -511,6 +520,13 @@ async function setWindowDisplayMode(win, nextMode, heightHint) {
     size.width,
     size.height
   );
+
+  if (bloomingFromMini) {
+    // The bloom is the capsule's new home: use it for setup -> capsule too,
+    // instead of the corner the capsule had before it was collapsed.
+    modePositions.capsule = { x: position.x, y: position.y };
+    savePreferences();
+  }
 
   suppressEdgeSnapUntil = Date.now() + 600 + MODE_TRANSITION_MS;
 

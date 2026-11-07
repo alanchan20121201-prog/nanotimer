@@ -12,6 +12,9 @@ out/
 .electron-builder-cache/
 .electron-localappdata/
 
+# Electron profile written by the QA runs (backgrounds, alert sounds, caches)
+.qa-profile/
+
 # Portable user data (created next to the executable or in node_modules during dev)
 NanoTimerData/
 nanotimer/
